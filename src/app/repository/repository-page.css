@@ -1,0 +1,14 @@
+/* The badge sits on the lede line rather than beside the heading: a repository name can be long
+   enough to wrap, and a badge anchored to the end of a wrapped heading lands in the middle of the
+   page. */
+.lede {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.25rem;
+}
+
+.note {
+  max-width: 60ch;
+}

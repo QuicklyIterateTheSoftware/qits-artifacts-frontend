@@ -1,6 +1,45 @@
 # QitsSpaArtifacts
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.2.6.
+The artifact explorer: the read-only view of what this platform stores and what it costs, served by
+qits-artifacts itself at `/artifacts/` through Quinoa. Four pages, no forms, and no writes at all.
+
+- **`/artifacts/`** — every repository, with its type, how many things it holds and its own byte
+  union, beside a store-level summary panel. Two requests, and none per repository.
+- **`/artifacts/repositories/<repo>`** — one repository, drawn as whatever its type holds: images,
+  packages, or an honest empty state for the two CI types that have never held a row.
+- **`/artifacts/repositories/<repo>/images/<image>`** — an image's tags and the manifest each points
+  at, led by the per-image union.
+- **`/artifacts/repositories/<repo>/packages/<package>`** — a package's versions.
+
+The tree is **repository-first**, and that is a decision rather than a default. Nothing in this
+store joins to a project: not one column, in any table. An image name equals a git-host repository
+id for the slug-named repositories, but it is derived by qits-cd from a deploy plan's application
+name and merely coincides — and it coincides for no npm package at all. So the join is offered
+where it is real: a tag shaped like a commit sha is a link out to the CI explorer, opened at the
+repository of the same name, with the sha printed for you to match. It is not a link to a run.
+qits-ci addresses a run by its own id and has no lookup from a commit, so a run URL would be one
+this application invented.
+
+**Every size here is a union, and the UI says which one.** Blobs are content-addressed and
+deduplicated across every repository, so the same content measures 10.63 GiB added up per tag, 4.36
+GiB added up per image and 4.04 GiB counted once. The headline size on an image is the **per-image
+union**; the per-tag column is labelled *not additive* and is never totalled; and the summary panel
+on the front page names all three figures, plus the ~124 MiB of orphaned blobs no row-based view can
+show, and the cached npm packument documents that outweigh the tarballs they index by roughly four
+to one. An unlabelled byte count on a deduped store is a lie with a number in it.
+
+**Cached and published npm are separate pages because they are separate repositories.** Proxied npm
+outweighs published npm 1,971:1 by bytes on this deployment; one mixed listing with a filter would
+bury the platform's own two packages at 0.6% of the rows.
+
+The **git host** is out of scope and named as such on the front page. It runs in the same service
+and answers under the same URL segment, and shares nothing else: separate volume, no blob store, no
+rows, no repository entry.
+
+`src/app/api/` holds hand-written interfaces mirroring the service's wire shapes and one injectable
+over `HttpClient` on the fetch backend — one upstream, because there is no second service to join
+against. Nothing is generated: these routes are hidden from the OpenAPI document, and the platform
+generates documents rather than clients.
 
 ## Development server
 
@@ -11,6 +50,21 @@ ng serve
 ```
 
 Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+
+`proxy.conf.json` forwards `/artifacts/api` to a gateway on `localhost:8080`, because `ng serve`
+puts no gateway in front. In a deployment every call is a same-origin path behind the real gateway.
+These reads carry no credential in either case — the service's token filter covers write methods
+only, and `/artifacts/api` is already a public path at the gateway.
+
+## Running the checks
+
+```bash
+npm run lint && npm test && npm run build
+```
+
+The same three, in the same order, are what `.config/qits/ci-post-receive.yml` runs on every push.
+Note what that pipeline installs from: the npm registry behind it **is** qits-artifacts, so a run
+here cannot be green while that service is down. Its deploy is taken alone, with the CI queue empty.
 
 ## Code scaffolding
 

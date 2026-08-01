@@ -1,0 +1,140 @@
+<nav class="crumbs" aria-label="Breadcrumb">
+  <a routerLink="/">Artifacts</a><span class="sep" aria-hidden="true">/</span
+  ><span>{{ repoName() }}</span>
+</nav>
+
+<header class="head">
+  <div>
+    <h1>{{ repoName() }}</h1>
+    @if (repository(); as repository) {
+      <p class="lede">
+        <qits-badge [label]="repository.type" [tone]="typeTone(repository.type)" />
+        <span>{{ lede() }}</span>
+      </p>
+      <p class="note">{{ typeSummary(repository.type) }}</p>
+    }
+  </div>
+  <qits-button variant="secondary" size="sm" (pressed)="reload()">Refresh</qits-button>
+</header>
+
+<app-async
+  [state]="repositories()"
+  loadingLabel="Loading the repository"
+  errorLabel="Could not load the repository"
+  (retry)="reload()"
+/>
+
+@if (missing()) {
+  <p class="page-error" role="alert">
+    <span>⚠ There is no repository called “{{ repoName() }}” in this store.</span>
+  </p>
+}
+
+@if (isOci()) {
+  <section>
+    <app-async
+      [state]="images()"
+      loadingLabel="Loading the images"
+      errorLabel="Could not load the images"
+      (retry)="loadImages()"
+    />
+
+    @if (images().kind === 'ready') {
+      <div class="scroll">
+        <table>
+          <caption>
+            Each size is that image's own union: every blob its manifests reference, counted once.
+            Adding this column up over-counts the few blobs two images share — the store summary on
+            the front page carries the true union.
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Image</th>
+              <th scope="col">Contents</th>
+              <th scope="col" class="num">Size (per-image union)</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (image of imageRows(); track image.name) {
+              <tr>
+                <th scope="row">
+                  <a [routerLink]="['/repositories', repoName(), 'images', image.name]">
+                    {{ image.name }}
+                  </a>
+                </th>
+                <td class="subtle">{{ imageMeta(image) }}</td>
+                <td class="num">{{ formatBytes(image.sizeBytes) }}</td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="3">
+                  <app-empty message="This repository holds no images." />
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <p class="note">
+        An image with more manifests than tags has manifests nothing points at. They still hold
+        bytes, and they are counted in the size above.
+      </p>
+    }
+  </section>
+}
+
+@if (isNpm()) {
+  <section>
+    <app-async
+      [state]="packages()"
+      loadingLabel="Loading the packages"
+      errorLabel="Could not load the packages"
+      (retry)="loadPackages()"
+    />
+
+    @if (packages().kind === 'ready') {
+      <div class="scroll">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Package</th>
+              <th scope="col" class="num">Versions</th>
+              <th scope="col">Latest</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (package of packageRows(); track package.name) {
+              <tr>
+                <th scope="row">
+                  <a [routerLink]="['/repositories', repoName(), 'packages', package.name]">
+                    {{ package.name }}
+                  </a>
+                </th>
+                <td class="num">{{ package.versionCount }}</td>
+                <td class="mono">{{ package.latest ?? none }}</td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="3">
+                  <app-empty message="This repository holds no packages." />
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      @if (repository()?.type === 'npm-proxy') {
+        <p class="note">
+          This listing is built from the versions the cache has actually pulled. A package whose
+          upstream document was fetched but whose tarball never was is missing from it — the
+          document is still stored, and its cost is in the store summary's “cached packument
+          documents” figure, which is roughly four times the size of the tarballs listed here.
+        </p>
+      }
+    }
+  </section>
+}
+
+@if (hasNoListing()) {
+  <app-empty [message]="emptyTypeMessage()" />
+}

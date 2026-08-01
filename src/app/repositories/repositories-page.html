@@ -1,0 +1,73 @@
+<header class="head">
+  <div>
+    <h1>Artifacts</h1>
+    <p class="lede">
+      What this platform stores, and what it costs. {{ lede() }} Read-only: nothing here deletes,
+      expires or reclaims anything.
+    </p>
+  </div>
+  <qits-button variant="secondary" size="sm" (pressed)="reload()">Refresh</qits-button>
+</header>
+
+<div class="layout">
+  <section class="main">
+    <app-async
+      [state]="repositories()"
+      loadingLabel="Loading the repositories"
+      errorLabel="Could not load the repositories"
+      (retry)="loadRepositories()"
+    />
+
+    @if (repositories().kind === 'ready') {
+      <div class="scroll">
+        <table>
+          <caption>
+            Every size below is a union over that repository's own blobs.
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Repository</th>
+              <th scope="col">Type</th>
+              <th scope="col">Contents</th>
+              <th scope="col" class="num">Size (union)</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (repository of rows(); track repository.name) {
+              <tr>
+                <th scope="row">
+                  <a [routerLink]="['/repositories', repository.name]">{{ repository.name }}</a>
+                </th>
+                <td>
+                  <qits-badge [label]="repository.type" [tone]="typeTone(repository.type)" />
+                </td>
+                <td>{{ contents(repository) }}</td>
+                <td class="num">{{ formatBytes(repository.sizeBytes) }}</td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="4">
+                  <app-empty message="This store holds no repositories at all." />
+                </td>
+              </tr>
+            }
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colspan="4">
+                The git host is not in this table. It runs in the same service and answers under the
+                same URL segment, and that is all it shares: separate volume, no blob store, no
+                rows, and no entry of its own here. Clone and push work as they always have — this
+                explorer simply does not measure them.
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    }
+  </section>
+
+  <aside class="rail">
+    <app-store-summary [state]="summary()" (reload)="loadSummary()" />
+  </aside>
+</div>

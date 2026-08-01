@@ -1,0 +1,27 @@
+/* The table and the summary panel. One column on a phone, where the table is what the page was
+   opened for and the summary reads as a long footnote under it; two from the tablet breakpoint up,
+   with the panel on the right. The panel is inside the content area on purpose — QitsMainLayout
+   owns the left sidebar, and a second column there would compete with the platform navigation. */
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.5rem;
+  align-items: start;
+}
+
+@media (min-width: 900px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr) 22rem;
+  }
+
+  .rail {
+    position: sticky;
+    top: 1rem;
+  }
+}
+
+.main,
+.rail {
+  min-width: 0;
+}

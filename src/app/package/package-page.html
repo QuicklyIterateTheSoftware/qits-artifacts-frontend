@@ -1,0 +1,76 @@
+<nav class="crumbs" aria-label="Breadcrumb">
+  <a routerLink="/">Artifacts</a><span class="sep" aria-hidden="true">/</span
+  ><a [routerLink]="['/repositories', repoName()]">{{ repoName() }}</a
+  ><span class="sep" aria-hidden="true">/</span><span>{{ packageName() }}</span>
+</nav>
+
+<header class="head">
+  <div>
+    <h1>{{ packageName() }}</h1>
+    <p class="lede">{{ lede() }}</p>
+  </div>
+  <qits-button variant="secondary" size="sm" (pressed)="reload()">Refresh</qits-button>
+</header>
+
+<app-async
+  [state]="versions()"
+  loadingLabel="Loading the versions"
+  errorLabel="Could not load the versions"
+  (retry)="loadVersions()"
+/>
+
+@if (versions().kind === 'ready') {
+  <div class="scroll">
+    <table>
+      <caption>
+        Tarball sizes are the bytes of one published archive each. They do not overlap the way OCI
+        layers do, and they are still not totalled here: a column with unmeasured rows in it cannot
+        be summed into anything true.
+      </caption>
+      <thead>
+        <tr>
+          <th scope="col">Version</th>
+          @if (hosted()) {
+            <th scope="col">Dist-tags</th>
+          }
+          <th scope="col" class="num">Tarball</th>
+          <th scope="col">Published</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (version of rows(); track version.version) {
+          <tr>
+            <th scope="row" class="mono">{{ version.version }}</th>
+            @if (hosted()) {
+              <td class="mono subtle">{{ distTags(version) }}</td>
+            }
+            <td class="num">{{ formatBytes(version.tarballSizeBytes) }}</td>
+            <td class="subtle">{{ formatInstant(version.publishedAt) }}</td>
+          </tr>
+        } @empty {
+          <tr>
+            <td [attr.colspan]="columns()">
+              <app-empty message="This package has no versions in this repository." />
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+
+  @if (cached()) {
+    <p class="note">
+      These versions are cached from the upstream registry, not published here. Dist-tags are not
+      shown because the cache stores versions rather than the upstream's tag pointers, so it has
+      none to show. A version whose tarball has never been pulled is listed with its size and date
+      unmeasured.
+    </p>
+  }
+
+  @if (hosted()) {
+    <p class="note">
+      Versions here are immutable — republishing one is refused — so a row on this table will not
+      change under you. Nothing on this platform expires or reclaims a version, either.
+    </p>
+  }
+}

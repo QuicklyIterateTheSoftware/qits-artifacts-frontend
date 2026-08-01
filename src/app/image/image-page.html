@@ -1,0 +1,93 @@
+<nav class="crumbs" aria-label="Breadcrumb">
+  <a routerLink="/">Artifacts</a><span class="sep" aria-hidden="true">/</span
+  ><a [routerLink]="['/repositories', repoName()]">{{ repoName() }}</a
+  ><span class="sep" aria-hidden="true">/</span><span>{{ imageName() }}</span>
+</nav>
+
+<header class="head">
+  <div>
+    <h1>{{ imageName() }}</h1>
+    <p class="lede">{{ lede() }}</p>
+  </div>
+  <qits-button variant="secondary" size="sm" (pressed)="reload()">Refresh</qits-button>
+</header>
+
+<app-async
+  [state]="tags()"
+  loadingLabel="Loading the tags"
+  errorLabel="Could not load the tags"
+  (retry)="loadTags()"
+/>
+
+@if (tags().kind === 'ready') {
+  <button
+    type="button"
+    class="disclosure"
+    [attr.aria-expanded]="fullDigests()"
+    (click)="toggleDigests()"
+  >
+    <span class="chevron" aria-hidden="true"></span>
+    <span>{{ fullDigests() ? 'Shorten' : 'Show full' }} digests</span>
+  </button>
+
+  <div class="scroll">
+    <table>
+      <caption>
+        Each size is the bytes that one manifest references.
+        <strong>These do not add up</strong>
+        — consecutive builds of an image share their base layers, so the same bytes appear on most
+        rows. The union over all of them is the figure under the heading above.
+      </caption>
+      <thead>
+        <tr>
+          <th scope="col">Tag</th>
+          <th scope="col">Manifest digest</th>
+          <th scope="col" class="num">Referenced bytes (not additive)</th>
+          <th scope="col">Pushed</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (tag of rows(); track tag.tag + tag.digest) {
+          <tr>
+            <th scope="row" class="mono">
+              @if (isCommitSha(tag.tag)) {
+                <a [href]="ciExplorerLink(imageName())" [attr.aria-label]="ciLinkLabel(tag.tag)">
+                  {{ tag.tag }}
+                </a>
+              } @else {
+                {{ tag.tag }}
+              }
+            </th>
+            <td class="mono subtle">{{ digest(tag) }}</td>
+            <td class="num">{{ formatBytes(tag.sizeBytes) }}</td>
+            <td class="subtle">{{ formatInstant(tag.createdAt) }}</td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="4">
+              <app-empty
+                message="No tags point at anything in this image. That is not the same as the image being unknown — an image that does not exist answers the same way."
+              />
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+
+  <p class="note">
+    A tag shaped like a git commit is a link out to the CI explorer. It opens that explorer at the
+    repository whose name matches this image and leaves the sha above for you to match against the
+    run list — it is <strong>not</strong> a link to a specific run. Nothing in this store records a
+    commit, a run or a project: the tag looks like a sha because qits-cd tags that way, and the
+    image name matches a repository by the same convention. Where the convention does not hold, the
+    explorer opens with that repository simply absent.
+  </p>
+
+  @if (untagged() > 0) {
+    <p class="note">
+      This image also has {{ untaggedNote() }} that no tag points at. They are not listed here —
+      there is no name to list them under — and their bytes are counted in the union above.
+    </p>
+  }
+}

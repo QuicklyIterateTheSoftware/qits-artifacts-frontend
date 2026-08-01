@@ -1,0 +1,10 @@
+/* A scoped package name is long and has no natural break point, so the heading is allowed to break
+   anywhere rather than pushing the refresh button off the row. */
+.head h1 {
+  overflow-wrap: anywhere;
+}
+
+caption,
+.note {
+  max-width: 70ch;
+}

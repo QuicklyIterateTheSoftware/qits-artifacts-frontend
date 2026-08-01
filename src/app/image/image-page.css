@@ -1,0 +1,11 @@
+/* A tag column that is mostly 40-character hex needs the room, and the digest beside it needs more.
+   Both stay on one line — a wrapped sha is unreadable and unmatched against a run list — and the
+   table scrolls instead. */
+caption,
+.note {
+  max-width: 70ch;
+}
+
+th[scope='row'] {
+  padding-right: 1.25rem;
+}
