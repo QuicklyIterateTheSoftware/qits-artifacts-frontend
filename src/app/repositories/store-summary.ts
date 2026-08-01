@@ -22,7 +22,7 @@ interface Group {
 }
 
 /**
- * The honesty panel: seven figures about one store that do not reconcile, all named.
+ * The honesty panel: eight figures about one store that do not reconcile, all named.
  *
  * It exists because of a measurement. The same OCI content is 10.63 GiB added up per tag, 4.36 GiB
  * added up per image, and 4.04 GiB counted once — a 2.63× spread with no bug behind it, just
@@ -36,6 +36,12 @@ interface Group {
  * 3.8×. And it reports the orphaned bytes, which are invisible everywhere else in this app by
  * construction — blobs with no manifest and no row, so no table built on rows can show them.
  *
+ * The mirror figure is beside the hosted union rather than inside it, because the service reports
+ * them apart and they answer different questions: one is what this platform published and is the
+ * only copy of, the other is what it cached from three public registries and could fetch again.
+ * Reading the hosted union as "all the images" was always going to be the first mistake once a
+ * pull-through cache existed, so the label says "hosted" now.
+ *
  * Nothing here is summed and nothing is charted. A bar chart of these would draw a comparison
  * between quantities that overlap, which is the exact error the panel is built to prevent.
  *
@@ -47,7 +53,10 @@ interface Group {
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [Async, QitsCard],
   template: `
-    <qits-card heading="What the store holds" subheading="Three OCI figures, and none of them add">
+    <qits-card
+      heading="What the store holds"
+      subheading="Eight figures over one store, and none of them add"
+    >
       <app-async
         [state]="state()"
         loadingLabel="Measuring the store"
@@ -169,14 +178,26 @@ export class StoreSummary {
             label: 'Per-image unions, added up',
             value: formatBytes(summary.ociPerImageSumBytes),
             kind:
-              'Each image counted as the set of blobs its manifests reference, then those totals ' +
-              'added. This is what the images table would total to. It over-counts the handful of ' +
-              'blobs that two images share.',
+              'Each hosted image counted as the set of blobs its manifests reference, then those ' +
+              'totals added. This is what the images table would total to. It over-counts the ' +
+              'handful of blobs that two images share.',
           },
           {
-            label: 'True union, counted once',
+            label: 'Hosted union, counted once',
             value: formatBytes(summary.ociUnionBytes),
-            kind: 'Every distinct blob any OCI manifest references, counted exactly once. The only figure here that is a fact about the disk rather than about a view of it.',
+            kind:
+              'Every distinct blob a hosted image references, counted exactly once — a fact about ' +
+              'the disk rather than about a view of it. The mirror namespaces are not in it; they ' +
+              'are the figure below.',
+          },
+          {
+            label: 'Mirrored from upstream, counted once',
+            value: formatBytes(summary.ociMirrorBytes),
+            kind:
+              'Every distinct blob the mirror namespaces hold, counted once. Bytes this platform ' +
+              'did not produce: base images pulled through the cache from three public ' +
+              'registries, kept so the next build does not fetch them again. This is the only ' +
+              'figure here that could be thrown away and re-obtained.',
           },
           {
             label: 'Orphaned blobs',

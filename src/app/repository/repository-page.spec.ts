@@ -32,6 +32,8 @@ describe('RepositoryPage', () => {
     repository({ name: 'npm', type: 'npm-packages', itemCount: 2, sizeBytes: 87040 }),
     repository({ name: 'npmjs', type: 'npm-proxy', itemCount: 710, sizeBytes: 171952091 }),
     repository({ name: 'ci-videos', type: 'ci-videos', itemCount: 0, sizeBytes: 0 }),
+    repository({ name: 'quay', type: 'oci-mirror', itemCount: 1, sizeBytes: 1132219 }),
+    repository({ name: 'redhat', type: 'oci-mirror', itemCount: 0, sizeBytes: 0 }),
   ];
 
   beforeEach(() => {
@@ -93,7 +95,43 @@ describe('RepositoryPage', () => {
     await settle();
 
     expect(text()).toContain('over-counts');
-    expect(text()).toContain('true union');
+    expect(text()).toContain('store-wide unions, hosted and mirrored apart');
+  });
+
+  // A mirror namespace's cached content is ordinary manifest and tag rows, so the same listing
+  // endpoint answers for it. Drawing it as a listing-less shape would hide rows the service hands
+  // out — and the budget stays 1 + 1, because the upstream behind the namespace is a link, not a
+  // second read.
+  it('lists a mirror namespace’s cached images, and links out to the upstream map', async () => {
+    await open('quay');
+    flushStore();
+    await settle();
+    http.expectOne('/artifacts/api/repositories/quay/images').flush({
+      images: [
+        {
+          name: 'quarkus/ubi9-quarkus-mandrel-builder-image',
+          tagCount: 1,
+          manifestCount: 2,
+          sizeBytes: 1132219,
+        },
+      ],
+    });
+    await settle();
+
+    http.verify();
+    expect(text()).toContain('quarkus/ubi9-quarkus-mandrel-builder-image');
+    expect(text()).toContain('pull-through cache of one upstream container registry');
+    expect(text()).toContain('mirror upstreams');
+  });
+
+  it('says a never-pulled namespace is lazy, not broken', async () => {
+    await open('redhat');
+    flushStore();
+    await settle();
+    http.expectOne('/artifacts/api/repositories/redhat/images').flush({ images: [] });
+    await settle();
+
+    expect(text()).toContain('Nothing has been pulled through this namespace yet');
   });
 
   it('lists packages for the hosted npm registry', async () => {

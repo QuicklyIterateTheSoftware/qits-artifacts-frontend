@@ -2,8 +2,9 @@
   <div>
     <h1>Artifacts</h1>
     <p class="lede">
-      What this platform stores, and what it costs. {{ lede() }} Read-only: nothing here deletes,
-      expires or reclaims anything.
+      What this platform stores, and what it costs. {{ lede() }} Nothing here deletes, expires or
+      reclaims a byte — the one thing this explorer can change is
+      <a routerLink="/mirrors">which registries are mirrored</a>.
     </p>
   </div>
   <qits-button variant="secondary" size="sm" (pressed)="reload()">Refresh</qits-button>
@@ -53,6 +54,15 @@
             }
           </tbody>
           <tfoot>
+            @if (mirrorCount() > 0) {
+              <tr>
+                <td colspan="4">
+                  {{ mirrorNote() }} Each fronts one upstream registry and holds only what a build
+                  has pulled through it. They are the one part of this store an operator creates and
+                  removes, on the <a routerLink="/mirrors">mirror upstreams</a> page.
+                </td>
+              </tr>
+            }
             <tr>
               <td colspan="4">
                 The git host is not in this table. It runs in the same service and answers under the

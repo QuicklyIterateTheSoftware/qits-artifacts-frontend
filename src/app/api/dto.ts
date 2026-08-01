@@ -15,9 +15,14 @@
  * is a measurement; null is the absence of one, and the UI draws them differently.
  */
 
-/** The five archetypes `RepositoryType` allows, in their kebab wire form. Maven is not one. */
+/**
+ * The six archetypes `RepositoryType` allows, in their kebab wire form. Maven is not one.
+ *
+ * `oci-mirror` is the newest and the only one an operator can create: one row per registered
+ * upstream registry, named by the namespace pulls travel under. See {@link MirrorUpstreamDto}.
+ */
 export type RepositoryTypeSlug =
-  'ci-screenshots' | 'ci-videos' | 'oci-images' | 'npm-packages' | 'npm-proxy';
+  'ci-screenshots' | 'ci-videos' | 'oci-images' | 'oci-mirror' | 'npm-packages' | 'npm-proxy';
 
 /**
  * One repository of the store.
@@ -114,13 +119,19 @@ export interface VersionsResponse {
 }
 
 /**
- * The honesty panel's numbers, and the reason it exists: these seven figures describe one store
+ * The honesty panel's numbers, and the reason it exists: these eight figures describe one store
  * and they do not reconcile, so the store-level view names all of them rather than picking a
  * flattering one.
  *
- * - `ociPerImageSumBytes` — the per-image unions added up. This is what the images table's column
- *   would total to, and it over-counts the blobs four images happen to share.
- * - `ociUnionBytes` — every distinct OCI blob counted once. The true figure, and the smallest.
+ * - `ociPerImageSumBytes` — the per-image unions added up, **over the hosted repositories only**.
+ *   This is what the images table's column would total to, and it over-counts the blobs four
+ *   images happen to share.
+ * - `ociUnionBytes` — every distinct blob a *hosted* OCI manifest reaches, counted once. The
+ *   mirror namespaces are **not** in it; they are `ociMirrorBytes`.
+ * - `ociMirrorBytes` — every distinct blob a *mirror* namespace's manifests reach, counted once.
+ *   Kept beside the hosted union rather than folded into it because the two answer different
+ *   questions: one is what this platform published, the other is what it cached from three public
+ *   registries and could fetch again.
  * - `orphanBytes` — bytes reachable from no manifest and no row at all: the ci-daemon binaries,
  *   uploaded through a blob session that never got a manifest. Invisible to every other view here,
  *   which is why the summary is the one place they can be reported.
@@ -133,9 +144,39 @@ export interface VersionsResponse {
 export interface StoreSummaryDto {
   readonly ociPerImageSumBytes: number;
   readonly ociUnionBytes: number;
+  readonly ociMirrorBytes: number;
   readonly orphanBytes: number;
   readonly npmPublishedBytes: number;
   readonly npmProxyTarballBytes: number;
   readonly npmProxyPackumentBytes: number;
   readonly diskTotalBytes: number;
+}
+
+/**
+ * One registered upstream registry, and the single namespace pulls through it travel under.
+ *
+ * The `domain` is the key and the identity: it is the host the service dials on a cache miss. The
+ * `slug` is the first path segment of every pull through this mirror — `quay` makes
+ * `<host>/quay/quarkus/…` — and it names an `oci-mirror` repository row written in the same
+ * transaction, which is why the two are never edited apart and why the slug cannot be moved once
+ * content is cached under it.
+ *
+ * `cachedImages` counts image *names* under the namespace, not tags and not layers. A namespace
+ * that has never been pulled through answers 0, which is a measurement rather than a gap: the
+ * cache is lazy, and an upstream registered this minute holds nothing until a build asks for
+ * something.
+ */
+export interface MirrorUpstreamDto {
+  readonly domain: string;
+  readonly slug: string;
+  readonly createdAt: string;
+  readonly cachedImages: number;
+}
+
+export interface MirrorUpstreamsResponse {
+  readonly upstreams: readonly MirrorUpstreamDto[];
+}
+
+export interface MirrorUpstreamResponse {
+  readonly upstream: MirrorUpstreamDto;
 }

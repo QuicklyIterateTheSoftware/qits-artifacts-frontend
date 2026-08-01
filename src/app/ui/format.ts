@@ -109,13 +109,14 @@ export function plural(count: number, singular: string, pluralForm?: string): st
 }
 
 /**
- * What a repository of this type holds, as a word. The five archetypes count different things and
+ * What a repository of this type holds, as a word. The six archetypes count different things and
  * a column headed "items" would hide that; `itemCount` is images here, packages there, and records
  * for the two ci types that have never held one.
  */
 export function itemNoun(type: string): string {
   switch (type) {
     case 'oci-images':
+    case 'oci-mirror':
       return 'image';
     case 'npm-packages':
     case 'npm-proxy':

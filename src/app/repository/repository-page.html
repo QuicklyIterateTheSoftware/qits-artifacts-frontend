@@ -12,6 +12,13 @@
         <span>{{ lede() }}</span>
       </p>
       <p class="note">{{ typeSummary(repository.type) }}</p>
+      @if (isMirror()) {
+        <p class="note">
+          Which upstream registry this namespace fronts is on the
+          <a routerLink="/mirrors">mirror upstreams</a> page — the map is keyed by domain, and this
+          page is keyed by repository name.
+        </p>
+      }
     }
   </div>
   <qits-button variant="secondary" size="sm" (pressed)="reload()">Refresh</qits-button>
@@ -45,7 +52,7 @@
           <caption>
             Each size is that image's own union: every blob its manifests reference, counted once.
             Adding this column up over-counts the few blobs two images share — the store summary on
-            the front page carries the true union.
+            the front page carries the store-wide unions, hosted and mirrored apart.
           </caption>
           <thead>
             <tr>
@@ -68,7 +75,13 @@
             } @empty {
               <tr>
                 <td colspan="3">
-                  <app-empty message="This repository holds no images." />
+                  @if (isMirror()) {
+                    <app-empty
+                      message="Nothing has been pulled through this namespace yet. The cache is lazy: a registered upstream holds nothing until a build asks it for something."
+                    />
+                  } @else {
+                    <app-empty message="This repository holds no images." />
+                  }
                 </td>
               </tr>
             }
@@ -78,6 +91,11 @@
       <p class="note">
         An image with more manifests than tags has manifests nothing points at. They still hold
         bytes, and they are counted in the size above.
+        @if (isMirror()) {
+          In a mirror namespace that is the ordinary case rather than an oddity: a pulled
+          multi-architecture index binds first and its per-architecture children arrive one at a
+          time, by digest, only for the architectures something actually asked for.
+        }
       </p>
     }
   </section>

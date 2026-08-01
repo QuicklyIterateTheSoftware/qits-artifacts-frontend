@@ -15,7 +15,7 @@ import { Async } from '../ui/async';
 import { Empty } from '../ui/empty';
 import { NONE, formatBytes, itemNoun, plural } from '../ui/format';
 import { IDLE, LOADING, failed, ready, type Loadable } from '../ui/loadable';
-import { isNpm, isOci, typeSummary, typeTone } from '../ui/repository-type';
+import { isMirror, isNpm, isOci, typeSummary, typeTone } from '../ui/repository-type';
 
 /**
  * One repository, drawn as whatever its type actually holds.
@@ -35,6 +35,13 @@ import { isNpm, isOci, typeSummary, typeTone } from '../ui/repository-type';
  * The type read is repeated on every page of this app rather than cached in a service. That is a
  * deliberate trade: a cache would need an invalidation story for a store this UI cannot write to
  * anyway, and the read is one flat list of five rows. Reloading a page is how you refresh it.
+ *
+ * **A mirror namespace is drawn as the image listing it is.** Its cached content is ordinary
+ * `oci_manifest` and `oci_tag` rows, so `…/images` answers for `quay` exactly as it does for
+ * `qits` and the same table serves both. What this page deliberately does *not* do is read the
+ * upstream map to name the registry behind the namespace: that is keyed by domain, would cost a
+ * second flat read on a page whose whole claim is `1 + 1`, and is one link away. The link is
+ * offered instead.
  *
  * **The ci types are drawn, not hidden.** A repository that exists and holds nothing is a fact
  * about this platform — the golden-diff loop these two were built for has never produced a single
@@ -93,6 +100,9 @@ export class RepositoryPage {
 
   protected readonly isOci = computed(() => isOci(this.repository()?.type ?? ''));
   protected readonly isNpm = computed(() => isNpm(this.repository()?.type ?? ''));
+
+  /** A mirror namespace, which is an image listing plus a link to the upstream it fronts. */
+  protected readonly isMirror = computed(() => isMirror(this.repository()?.type ?? ''));
 
   /** True for the two types that have no listing endpoint at all. */
   protected readonly hasNoListing = computed(

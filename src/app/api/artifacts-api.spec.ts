@@ -67,6 +67,7 @@ describe('ArtifactsApi', () => {
     http.expectOne('/artifacts/api/store/summary').flush({
       ociPerImageSumBytes: 4681572352,
       ociUnionBytes: 4337916518,
+      ociMirrorBytes: 4865981,
       orphanBytes: 130023424,
       npmPublishedBytes: 87040,
       npmProxyTarballBytes: 171952091,
@@ -75,6 +76,7 @@ describe('ArtifactsApi', () => {
     });
     await expect(summary).resolves.toMatchObject({
       ociUnionBytes: 4337916518,
+      ociMirrorBytes: 4865981,
       orphanBytes: 130023424,
     });
   });
@@ -161,6 +163,64 @@ describe('ArtifactsApi', () => {
       versions: [{ version: '0.15.0', tarballSizeBytes: null, publishedAt: null, distTags: [] }],
     });
     await expect(versions).resolves.toMatchObject([{ tarballSizeBytes: null, publishedAt: null }]);
+  });
+
+  it('unwraps the registered upstreams', async () => {
+    const upstreams = api.mirrorUpstreams();
+    http.expectOne('/artifacts/api/mirror-upstreams').flush({
+      upstreams: [
+        { domain: 'quay.io', slug: 'quay', createdAt: '2026-08-01T13:50:45Z', cachedImages: 1 },
+      ],
+    });
+    await expect(upstreams).resolves.toMatchObject([{ domain: 'quay.io', slug: 'quay' }]);
+  });
+
+  // PUT because the domain is the key. The body carries only the slug, and the answer carries the
+  // row as stored — which is what lets a caller update its list without a second read.
+  it('registers an upstream by PUT on its domain, and answers the stored row', async () => {
+    const upstream = api.registerMirrorUpstream('ghcr.io', 'ghcr');
+    const request = http.expectOne('/artifacts/api/mirror-upstreams/ghcr.io');
+    expect(request.request.method).toBe('PUT');
+    expect(request.request.body).toEqual({ slug: 'ghcr' });
+    request.flush({
+      upstream: {
+        domain: 'ghcr.io',
+        slug: 'ghcr',
+        createdAt: '2026-08-01T14:00:00Z',
+        cachedImages: 0,
+      },
+    });
+    await expect(upstream).resolves.toMatchObject({ slug: 'ghcr', cachedImages: 0 });
+  });
+
+  it('reports a refused slug move as the 400 it is', async () => {
+    const upstream = api.registerMirrorUpstream('quay.io', 'quarkus');
+    http
+      .expectOne('/artifacts/api/mirror-upstreams/quay.io')
+      .flush({ message: 'a namespace is immutable' }, { status: 400, statusText: 'Bad Request' });
+    await expect(upstream).rejects.toMatchObject({ status: 400 });
+  });
+
+  it('removes an upstream by DELETE on its domain, and gets no body back', async () => {
+    const removed = api.removeMirrorUpstream('quay.io');
+    const request = http.expectOne('/artifacts/api/mirror-upstreams/quay.io');
+    expect(request.request.method).toBe('DELETE');
+    request.flush(null, { status: 204, statusText: 'No Content' });
+    await expect(removed).resolves.toBeUndefined();
+  });
+
+  // The write surface is guarded by a static token this application does not hold and must not
+  // invent. The call carries no credential and the 401 reaches the caller intact.
+  it('sends no token on a write, and surfaces the 401 that comes back', async () => {
+    const upstream = api.registerMirrorUpstream('ghcr.io', 'ghcr');
+    const request = http.expectOne('/artifacts/api/mirror-upstreams/ghcr.io');
+    expect(request.request.headers.has('X-Artifacts-Token')).toBe(false);
+    expect(request.request.headers.has('Authorization')).toBe(false);
+    request.flush(
+      { message: 'Missing or invalid X-Artifacts-Token' },
+      { status: 401, statusText: 'Unauthorized' },
+    );
+    await expect(upstream).rejects.toMatchObject({ status: 401 });
   });
 
   it('rejects with the HttpErrorResponse, so callers can read the status', async () => {

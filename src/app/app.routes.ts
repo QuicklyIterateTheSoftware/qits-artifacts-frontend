@@ -1,13 +1,14 @@
 import type { Routes } from '@angular/router';
 import { QitsMainLayout } from '@qits/ui-components';
 import { ImagePage } from './image/image-page';
+import { MirrorsPage } from './mirrors/mirrors-page';
 import { NotFound } from './not-found/not-found';
 import { PackagePage } from './package/package-page';
 import { RepositoriesPage } from './repositories/repositories-page';
 import { RepositoryPage } from './repository/repository-page';
 
 /**
- * Four pages, all of them inside the platform chrome, and the path is **repository-first**.
+ * Five pages, all of them inside the platform chrome, and the drill-down is **repository-first**.
  *
  * `QitsMainLayout` is the root *route* component rather than something the shell templates, so the
  * bar and the navigation mount once and survive every navigation beneath them.
@@ -30,7 +31,14 @@ import { RepositoryPage } from './repository/repository-page';
  * a separator; Angular's serialiser encodes it to `%2F` when a `routerLink` builds the URL and
  * decodes it back on the way in, so the segment survives the round trip intact.
  *
- * All four pages load eagerly. There are four of them, they share every component below them, and
+ * **`/mirrors` is a sibling of the tree, not a node in it.** The upstream map is keyed by *domain*
+ * — `quay.io` — while every other path here is keyed by a repository name, and the two are
+ * different things that happen to be paired. Hanging the panel under `repositories/:repo` would
+ * have made the domain look like a property of the namespace when the namespace is the property of
+ * the domain. So the mirror repository pages link across to it and it links back, and neither
+ * pretends to contain the other.
+ *
+ * All five pages load eagerly. There are five of them, they share every component below them, and
  * a lazy chunk boundary would be ceremony that costs a round trip.
  *
  * The `**` route sits inside the layout: `/artifacts/` is a segment this application owns outright,
@@ -42,6 +50,7 @@ export const routes: Routes = [
     component: QitsMainLayout,
     children: [
       { path: '', component: RepositoriesPage },
+      { path: 'mirrors', component: MirrorsPage },
       { path: 'repositories/:repo', component: RepositoryPage },
       { path: 'repositories/:repo/images/:image', component: ImagePage },
       { path: 'repositories/:repo/packages/:package', component: PackagePage },

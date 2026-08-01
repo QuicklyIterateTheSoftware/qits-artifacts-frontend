@@ -5,6 +5,9 @@ import { QITS_API_BASE } from './api-base';
 import type {
   ArtifactRepositoryDto,
   ImagesResponse,
+  MirrorUpstreamDto,
+  MirrorUpstreamResponse,
+  MirrorUpstreamsResponse,
   NpmPackageDto,
   NpmVersionDto,
   OciImageDto,
@@ -22,9 +25,9 @@ import type {
  * carries a project id — so unlike spa-ci and spa-cd this repository has one `@Injectable` rather
  * than two.
  *
- * All six calls are `GET`, all are unauthenticated, and all are one-shot: `firstValueFrom` unwraps
- * the observable immediately, because a promise is what the pages' `async` methods want.
- * `HttpClient` on the fetch backend rather than bare `fetch()` buys two things —
+ * All calls are one-shot: `firstValueFrom` unwraps the observable immediately, because a promise is
+ * what the pages' `async` methods want. `HttpClient` on the fetch backend rather than bare
+ * `fetch()` buys two things —
  * `HttpTestingController`, which is the whole basis of this repository's specs, and a call that
  * goes through `window.fetch`, where the platform's browser telemetry can see it.
  *
@@ -35,6 +38,14 @@ import type {
  * **Path segments are encoded, and one of them has to be.** An npm package name can be scoped —
  * `@qits/ui-components` — and the slash in it is not a path separator; `encodeURIComponent` turns
  * it into `@qits%2Fui-components`, which is the form the service's route expects.
+ *
+ * **The three mirror-upstream calls are the only writes this application makes, and they carry no
+ * credential.** That is not an omission to fill in later: no page in any qits SPA has ever sent a
+ * machine token, because the browser is not one of the callers those tokens exist for.
+ * qits-artifacts guards every write under `/artifacts/api` with a static `X-Artifacts-Token` that
+ * only a shell or a provisioning script holds, so when a deployment sets that token these two
+ * writes answer 401 and the page says exactly that. Storing a token in this app would be inventing
+ * a credential store to defeat a guard rather than to satisfy it.
  */
 @Injectable({ providedIn: 'root' })
 export class ArtifactsApi {
@@ -104,5 +115,49 @@ export class ArtifactsApi {
       ),
     );
     return response.versions;
+  }
+
+  /** Every registered upstream registry, ordered by namespace. A read — open, like the rest. */
+  async mirrorUpstreams(): Promise<readonly MirrorUpstreamDto[]> {
+    const response = await firstValueFrom(
+      this.http.get<MirrorUpstreamsResponse>(`${this.base}/artifacts/api/mirror-upstreams`),
+    );
+    return response.upstreams;
+  }
+
+  /**
+   * Registers an upstream under a namespace, and answers the row as stored.
+   *
+   * `PUT` because the domain is the key: re-registering the same pair is a no-op that answers the
+   * existing row, so a provisioning script can be re-run. Registering a *different* namespace for
+   * a domain already mirrored is a 400 — content is cached under the old namespace and moving the
+   * name would strand it — as is a namespace already taken by another upstream or by a repository
+   * of some other type.
+   *
+   * The answer is used rather than discarded: the caller splices it into the list it already has,
+   * which is what keeps a write from costing a re-read.
+   */
+  async registerMirrorUpstream(domain: string, slug: string): Promise<MirrorUpstreamDto> {
+    const response = await firstValueFrom(
+      this.http.put<MirrorUpstreamResponse>(
+        `${this.base}/artifacts/api/mirror-upstreams/${encodeURIComponent(domain)}`,
+        { slug },
+      ),
+    );
+    return response.upstream;
+  }
+
+  /**
+   * Stops mirroring an upstream. 204, and **nothing cached is removed** — the namespace's
+   * repository row, manifests, tags and blobs stay exactly where they are and keep serving. What
+   * ends is the ability to fetch anything new into that namespace, because nothing names the
+   * registry to fetch it from any more.
+   */
+  async removeMirrorUpstream(domain: string): Promise<void> {
+    await firstValueFrom(
+      this.http.delete<void>(
+        `${this.base}/artifacts/api/mirror-upstreams/${encodeURIComponent(domain)}`,
+      ),
+    );
   }
 }
