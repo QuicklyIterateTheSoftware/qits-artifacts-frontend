@@ -7,13 +7,20 @@ import {
   signal,
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
+import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink, convertToParamMap } from '@angular/router';
 import { QitsBadge, QitsButton } from '@qits/ui-components';
 import { ArtifactsApi } from '../api/artifacts-api';
-import type { ArtifactRepositoryDto, NpmPackageDto, OciImageDto } from '../api/dto';
+import type {
+  ArtifactFilters,
+  ArtifactRecordDto,
+  ArtifactRepositoryDto,
+  NpmPackageDto,
+  OciImageDto,
+} from '../api/dto';
 import { Async } from '../ui/async';
 import { Empty } from '../ui/empty';
-import { NONE, formatBytes, itemNoun, plural } from '../ui/format';
+import { NONE, formatBytes, formatInstant, itemNoun, plural, shortDigest } from '../ui/format';
 import { IDLE, LOADING, failed, ready, type Loadable } from '../ui/loadable';
 import { isMirror, isNpm, isOci, typeSummary, typeTone } from '../ui/repository-type';
 
@@ -56,7 +63,7 @@ import { isMirror, isNpm, isOci, typeSummary, typeTone } from '../ui/repository-
 @Component({
   selector: 'app-repository-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [Async, Empty, QitsBadge, QitsButton, RouterLink],
+  imports: [Async, Empty, FormsModule, QitsBadge, QitsButton, RouterLink],
   templateUrl: './repository-page.html',
   styleUrls: ['../ui/page.css', './repository-page.css'],
 })
@@ -65,6 +72,8 @@ export class RepositoryPage {
   private readonly route = inject(ActivatedRoute);
 
   protected readonly formatBytes = formatBytes;
+  protected readonly formatInstant = formatInstant;
+  protected readonly shortDigest = shortDigest;
   protected readonly typeTone = typeTone;
   protected readonly typeSummary = typeSummary;
   protected readonly none = NONE;
@@ -84,6 +93,17 @@ export class RepositoryPage {
   /** Idle until the type says this repository has packages. */
   protected readonly packages = signal<Loadable<readonly NpmPackageDto[]>>(IDLE);
 
+  /** Directly uploaded CI records; idle for protocol repositories. */
+  protected readonly records = signal<Loadable<readonly ArtifactRecordDto[]>>(IDLE);
+
+  protected createdAfter = '';
+  protected createdBefore = '';
+  protected accessedAfter = '';
+  protected accessedBefore = '';
+  protected minSize: number | null = null;
+  protected maxSize: number | null = null;
+  protected accessState = '';
+
   /** This repository's own row, once the list is here. */
   protected readonly repository = computed<ArtifactRepositoryDto | null>(() => {
     const state = this.repositories();
@@ -100,13 +120,17 @@ export class RepositoryPage {
 
   protected readonly isOci = computed(() => isOci(this.repository()?.type ?? ''));
   protected readonly isNpm = computed(() => isNpm(this.repository()?.type ?? ''));
+  protected readonly isCi = computed(() => {
+    const type = this.repository()?.type;
+    return type === 'ci-screenshots' || type === 'ci-videos';
+  });
 
   /** A mirror namespace, which is an image listing plus a link to the upstream it fronts. */
   protected readonly isMirror = computed(() => isMirror(this.repository()?.type ?? ''));
 
   /** True for the two types that have no listing endpoint at all. */
   protected readonly hasNoListing = computed(
-    () => this.repository() !== null && !this.isOci() && !this.isNpm(),
+    () => this.repository() !== null && !this.isOci() && !this.isNpm() && !this.isCi(),
   );
 
   protected readonly imageRows = computed(() => {
@@ -116,6 +140,11 @@ export class RepositoryPage {
 
   protected readonly packageRows = computed(() => {
     const state = this.packages();
+    return state.kind === 'ready' ? state.value : [];
+  });
+
+  protected readonly recordRows = computed(() => {
+    const state = this.records();
     return state.kind === 'ready' ? state.value : [];
   });
 
@@ -144,6 +173,7 @@ export class RepositoryPage {
   protected async reload(): Promise<void> {
     this.images.set(IDLE);
     this.packages.set(IDLE);
+    this.records.set(IDLE);
     this.repositories.set(LOADING);
     try {
       const repositories = await this.api.repositories();
@@ -153,6 +183,11 @@ export class RepositoryPage {
         await this.loadImages();
       } else if (repository && isNpm(repository.type)) {
         await this.loadPackages();
+      } else if (
+        repository &&
+        (repository.type === 'ci-screenshots' || repository.type === 'ci-videos')
+      ) {
+        await this.loadRecords();
       }
     } catch (error) {
       this.repositories.set(failed(error));
@@ -177,6 +212,44 @@ export class RepositoryPage {
     }
   }
 
+  protected async loadRecords(): Promise<void> {
+    this.records.set(LOADING);
+    try {
+      this.records.set(ready(await this.api.artifactRecords(this.repoName(), this.filters())));
+    } catch (error) {
+      this.records.set(failed(error));
+    }
+  }
+
+  protected clearFilters(): void {
+    this.createdAfter = '';
+    this.createdBefore = '';
+    this.accessedAfter = '';
+    this.accessedBefore = '';
+    this.minSize = null;
+    this.maxSize = null;
+    this.accessState = '';
+    void this.loadRecords();
+  }
+
+  private filters(): ArtifactFilters {
+    return {
+      createdAfter: utcInstant(this.createdAfter),
+      createdBefore: utcInstant(this.createdBefore),
+      accessedAfter: utcInstant(this.accessedAfter),
+      accessedBefore: utcInstant(this.accessedBefore),
+      minSize: this.minSize ?? undefined,
+      maxSize: this.maxSize ?? undefined,
+      neverAccessed:
+        this.accessState === 'never' ? true : this.accessState === 'accessed' ? false : undefined,
+    };
+  }
+
+  protected metadata(record: ArtifactRecordDto): string {
+    const entries = Object.entries(record.metadata);
+    return entries.length ? entries.map(([key, value]) => `${key}=${value}`).join(' · ') : NONE;
+  }
+
   /** `22 tags · 22 manifests` — what an image row carries beside its size. */
   protected imageMeta(image: OciImageDto): string {
     return `${plural(image.tagCount, 'tag')} · ${plural(image.manifestCount, 'manifest')}`;
@@ -191,4 +264,9 @@ export class RepositoryPage {
       'It was built for the CI golden-diff loop, and that loop has never produced anything.'
     );
   });
+}
+
+/** The controls are explicitly UTC, so a browser's locale never changes the query instant. */
+function utcInstant(value: string): string | undefined {
+  return value ? `${value}:00Z` : undefined;
 }

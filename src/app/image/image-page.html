@@ -20,6 +20,45 @@
 />
 
 @if (tags().kind === 'ready') {
+  <form class="filters" (ngSubmit)="applyFilters()">
+    <fieldset>
+      <legend>Filter tags <span class="subtle">(inclusive, UTC)</span></legend>
+      <label
+        >Created after <input type="datetime-local" name="createdAfter" [(ngModel)]="createdAfter"
+      /></label>
+      <label
+        >Created before
+        <input type="datetime-local" name="createdBefore" [(ngModel)]="createdBefore"
+      /></label>
+      <label
+        >Accessed after
+        <input type="datetime-local" name="accessedAfter" [(ngModel)]="accessedAfter"
+      /></label>
+      <label
+        >Accessed before
+        <input type="datetime-local" name="accessedBefore" [(ngModel)]="accessedBefore"
+      /></label>
+      <label
+        >Minimum bytes <input type="number" min="0" name="minSize" [(ngModel)]="minSize"
+      /></label>
+      <label
+        >Maximum bytes <input type="number" min="0" name="maxSize" [(ngModel)]="maxSize"
+      /></label>
+      <label
+        >Access state
+        <select name="accessState" [(ngModel)]="accessState">
+          <option value="">Any</option>
+          <option value="never">Never accessed</option>
+          <option value="accessed">Accessed</option>
+        </select>
+      </label>
+    </fieldset>
+    <div class="filter-actions">
+      <button type="submit">Apply filters</button>
+      <button type="button" (click)="clearFilters()">Clear</button>
+    </div>
+  </form>
+
   <button
     type="button"
     class="disclosure"
@@ -44,6 +83,7 @@
           <th scope="col">Manifest digest</th>
           <th scope="col" class="num">Referenced bytes (not additive)</th>
           <th scope="col">Pushed</th>
+          <th scope="col">Last accessed</th>
         </tr>
       </thead>
       <tbody>
@@ -61,10 +101,11 @@
             <td class="mono subtle">{{ digest(tag) }}</td>
             <td class="num">{{ formatBytes(tag.sizeBytes) }}</td>
             <td class="subtle">{{ formatInstant(tag.createdAt) }}</td>
+            <td class="subtle">{{ tag.accessedAt ? formatInstant(tag.accessedAt) : 'Never' }}</td>
           </tr>
         } @empty {
           <tr>
-            <td colspan="4">
+            <td colspan="5">
               <app-empty
                 message="No tags point at anything in this image. That is not the same as the image being unknown — an image that does not exist answers the same way."
               />
@@ -74,6 +115,59 @@
       </tbody>
     </table>
   </div>
+
+  <p class="note">
+    “Never” includes tags that predate access tracking. Access filters exclude those rows. The
+    timestamp records manifest/tag reads; globally deduplicated layer pulls cannot be attributed to
+    one repository or tag.
+  </p>
+
+  <app-async
+    [state]="manifests()"
+    loadingLabel="Loading the manifests"
+    errorLabel="Could not load the manifests"
+    (retry)="loadManifests()"
+  />
+  @if (manifests().kind === 'ready') {
+    <div class="scroll">
+      <table>
+        <caption>
+          Cleanup inventory: every manifest, including displaced and index-child manifests no tag
+          currently names. Referenced byte sizes are not additive.
+        </caption>
+        <thead>
+          <tr>
+            <th scope="col">Manifest digest</th>
+            <th scope="col">Tags</th>
+            <th scope="col">Media type</th>
+            <th scope="col" class="num">Referenced bytes</th>
+            <th scope="col">Created</th>
+            <th scope="col">Last accessed</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (manifest of manifestRows(); track manifest.digest) {
+            <tr>
+              <th scope="row" class="mono">
+                {{ fullDigests() ? manifest.digest : shortDigest(manifest.digest) }}
+              </th>
+              <td>{{ manifest.tags.length ? manifest.tags.join(', ') : 'Untagged' }}</td>
+              <td class="subtle">{{ manifest.mediaType }}</td>
+              <td class="num">{{ formatBytes(manifest.sizeBytes) }}</td>
+              <td class="subtle">{{ formatInstant(manifest.createdAt) }}</td>
+              <td class="subtle">
+                {{ manifest.accessedAt ? formatInstant(manifest.accessedAt) : 'Never' }}
+              </td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="6"><app-empty message="No manifests match these filters." /></td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
 
   <p class="note">
     A tag shaped like a git commit is a link out to the CI explorer. It opens that explorer at the
@@ -86,8 +180,9 @@
 
   @if (untagged() > 0) {
     <p class="note">
-      This image also has {{ untaggedNote() }} that no tag points at. They are not listed here —
-      there is no name to list them under — and their bytes are counted in the union above.
+      This image also has {{ untaggedNote() }} that no tag points at. They do not appear in the tag
+      table because there is no tag name to list them under; the cleanup inventory above lists them
+      by digest. Their bytes are counted in the union above.
     </p>
   }
 }

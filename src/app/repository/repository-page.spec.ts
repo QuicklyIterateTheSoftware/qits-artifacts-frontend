@@ -162,16 +162,53 @@ describe('RepositoryPage', () => {
     expect(text()).toContain('whose tarball never was is missing from it');
   });
 
-  it('asks for no listing at all for a ci type, and says why it is empty', async () => {
+  it('lists CI artifacts with created and never-accessed timestamps', async () => {
     await open('ci-videos');
     flushStore();
     await settle();
+    http.expectOne('/artifacts/api/repositories/ci-videos/blobs').flush({
+      records: [
+        {
+          id: 'sha256:abcdef0123456789',
+          repository: 'ci-videos',
+          mediatype: 'video/webm',
+          size: 2048,
+          createdAt: '2026-07-31T14:06:23Z',
+          accessedAt: null,
+          metadata: { 'git.branch.name': 'main' },
+        },
+      ],
+    });
+    await settle();
 
-    // The whole assertion: one request, and the second never happens.
     http.verify();
-    expect(text()).toContain('A shape with no content');
-    expect(text()).toContain('no video records');
-    expect(text()).toContain('has never produced anything');
+    expect(text()).toContain('video/webm');
+    expect(text()).toContain('2.00 KiB');
+    expect(text()).toContain('31 Jul 2026 14:06:23Z');
+    expect(text()).toContain('Never');
+  });
+
+  it('submits repository artifact bounds and access state to the server', async () => {
+    await open('ci-videos');
+    flushStore();
+    await settle();
+    http.expectOne('/artifacts/api/repositories/ci-videos/blobs').flush({ records: [] });
+    await settle();
+
+    const page = harness.fixture.nativeElement as HTMLElement;
+    const minimum = page.querySelector<HTMLInputElement>('input[name="minSize"]')!;
+    minimum.value = '4096';
+    minimum.dispatchEvent(new Event('input'));
+    const access = page.querySelector<HTMLSelectElement>('select[name="accessState"]')!;
+    access.value = 'accessed';
+    access.dispatchEvent(new Event('change'));
+    page.querySelector<HTMLFormElement>('form')!.dispatchEvent(new Event('submit'));
+    await settle();
+
+    const request = http.expectOne((candidate) => candidate.url.endsWith('/ci-videos/blobs'));
+    expect(request.request.params.get('min-size')).toBe('4096');
+    expect(request.request.params.get('never-accessed')).toBe('false');
+    request.flush({ records: [] });
   });
 
   it('says a name that is not in the store is not in the store', async () => {

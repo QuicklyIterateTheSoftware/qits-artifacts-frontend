@@ -12,3 +12,51 @@
 .note {
   max-width: 60ch;
 }
+
+.filters {
+  margin: 0 0 1rem;
+}
+
+.filters fieldset {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 0.6rem 1rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.375rem;
+}
+
+.filters label {
+  display: grid;
+  gap: 0.2rem;
+  color: #4b5563;
+  font-size: 0.82rem;
+}
+
+.filters input,
+.filters select {
+  padding: 0.35rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.25rem;
+  font: inherit;
+}
+
+.filter-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.filter-actions button {
+  padding: 0.35rem 0.65rem;
+  border: 1px solid #c7d2fe;
+  border-radius: 0.25rem;
+  background: #eef2ff;
+  color: #3730a3;
+  cursor: pointer;
+}
+
+.metadata {
+  max-width: 28rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

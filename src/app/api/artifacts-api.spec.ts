@@ -120,6 +120,63 @@ describe('ArtifactsApi', () => {
     await expect(tags).resolves.toMatchObject([{ digest: 'sha256:abc', sizeBytes: 512 }]);
   });
 
+  it('encodes inclusive artifact filters and preserves nullable access times', async () => {
+    const records = api.artifactRecords('ci-videos', {
+      accessedBefore: '2026-08-01T00:00:00Z',
+      createdAfter: '2026-07-01T00:00:00Z',
+      minSize: 1024,
+      maxSize: 4096,
+      neverAccessed: true,
+    });
+    const request = http.expectOne(
+      (candidate) => candidate.url === '/artifacts/api/repositories/ci-videos/blobs',
+    );
+    expect(request.request.params.get('accessed-before')).toBe('2026-08-01T00:00:00Z');
+    expect(request.request.params.get('created-after')).toBe('2026-07-01T00:00:00Z');
+    expect(request.request.params.get('min-size')).toBe('1024');
+    expect(request.request.params.get('max-size')).toBe('4096');
+    expect(request.request.params.get('never-accessed')).toBe('true');
+    request.flush({
+      records: [
+        {
+          id: 'abc',
+          repository: 'ci-videos',
+          mediatype: 'video/webm',
+          size: 2048,
+          createdAt: '2026-07-31T14:06:23Z',
+          accessedAt: null,
+          metadata: {},
+        },
+      ],
+    });
+    await expect(records).resolves.toMatchObject([{ accessedAt: null }]);
+  });
+
+  it('filters tags and lists untagged manifests for cleanup', async () => {
+    const tags = api.tags('qits', 'app', { accessedAfter: '2026-07-01T00:00:00Z' });
+    const tagRequest = http.expectOne((candidate) => candidate.url.endsWith('/tags'));
+    expect(tagRequest.request.params.get('accessed-after')).toBe('2026-07-01T00:00:00Z');
+    tagRequest.flush({ tags: [] });
+    await expect(tags).resolves.toEqual([]);
+
+    const manifests = api.manifests('qits', 'app', { neverAccessed: true });
+    const manifestRequest = http.expectOne((candidate) => candidate.url.endsWith('/manifests'));
+    expect(manifestRequest.request.params.get('never-accessed')).toBe('true');
+    manifestRequest.flush({
+      manifests: [
+        {
+          digest: 'sha256:abc',
+          mediaType: 'application/vnd.oci.image.manifest.v1+json',
+          sizeBytes: 1,
+          createdAt: '2026-07-01T00:00:00Z',
+          accessedAt: null,
+          tags: [],
+        },
+      ],
+    });
+    await expect(manifests).resolves.toMatchObject([{ tags: [], accessedAt: null }]);
+  });
+
   it('unwraps the packages of an npm repository', async () => {
     const packages = api.packages('npm');
     http.expectOne('/artifacts/api/repositories/npm/packages').flush({

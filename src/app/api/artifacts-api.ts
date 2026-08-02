@@ -1,16 +1,21 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { QITS_API_BASE } from './api-base';
 import type {
   ArtifactRepositoryDto,
+  ArtifactRecordDto,
+  ArtifactRecordsResponse,
+  ArtifactFilters,
   ImagesResponse,
+  ManifestsResponse,
   MirrorUpstreamDto,
   MirrorUpstreamResponse,
   MirrorUpstreamsResponse,
   NpmPackageDto,
   NpmVersionDto,
   OciImageDto,
+  OciManifestDto,
   OciTagDto,
   PackagesResponse,
   RepositoriesResponse,
@@ -85,14 +90,49 @@ export class ArtifactsApi {
 
   /** One image's tags, each with the manifest it points at. The sizes here are per-manifest and
    * must not be added; see {@link OciTagDto}. */
-  async tags(repository: string, image: string): Promise<readonly OciTagDto[]> {
+  async tags(
+    repository: string,
+    image: string,
+    filters: ArtifactFilters = {},
+  ): Promise<readonly OciTagDto[]> {
     const response = await firstValueFrom(
       this.http.get<TagsResponse>(
         `${this.base}/artifacts/api/repositories/${encodeURIComponent(repository)}` +
           `/images/${encodeURIComponent(image)}/tags`,
+        { params: filterParams(filters) },
       ),
     );
     return response.tags;
+  }
+
+  /** Direct CI uploads. Other repository types use their protocol-aware listing instead. */
+  async artifactRecords(
+    repository: string,
+    filters: ArtifactFilters = {},
+  ): Promise<readonly ArtifactRecordDto[]> {
+    const response = await firstValueFrom(
+      this.http.get<ArtifactRecordsResponse>(
+        `${this.base}/artifacts/api/repositories/${encodeURIComponent(repository)}/blobs`,
+        { params: filterParams(filters) },
+      ),
+    );
+    return response.records;
+  }
+
+  /** Every manifest, including displaced and index-child manifests with no current tag. */
+  async manifests(
+    repository: string,
+    image: string,
+    filters: ArtifactFilters = {},
+  ): Promise<readonly OciManifestDto[]> {
+    const response = await firstValueFrom(
+      this.http.get<ManifestsResponse>(
+        `${this.base}/artifacts/api/repositories/${encodeURIComponent(repository)}` +
+          `/images/${encodeURIComponent(image)}/manifests`,
+        { params: filterParams(filters) },
+      ),
+    );
+    return response.manifests;
   }
 
   /** The packages of an npm repository, hosted or proxied — the same endpoint for both, because
@@ -160,4 +200,23 @@ export class ArtifactsApi {
       ),
     );
   }
+}
+
+function filterParams(filters: ArtifactFilters): HttpParams {
+  let params = new HttpParams();
+  const values: readonly (readonly [string, string | number | boolean | undefined])[] = [
+    ['accessed-after', filters.accessedAfter],
+    ['accessed-before', filters.accessedBefore],
+    ['created-after', filters.createdAfter],
+    ['created-before', filters.createdBefore],
+    ['min-size', filters.minSize],
+    ['max-size', filters.maxSize],
+    ['never-accessed', filters.neverAccessed],
+  ];
+  for (const [name, value] of values) {
+    if (value !== undefined && value !== '') {
+      params = params.set(name, String(value));
+    }
+  }
+  return params;
 }

@@ -27,6 +27,7 @@ describe('ImagePage', () => {
     digest: 'sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
     sizeBytes: 512180224,
     createdAt: '2026-07-31T14:06:23Z',
+    accessedAt: null,
     ...over,
   });
 
@@ -69,9 +70,19 @@ describe('ImagePage', () => {
 
   function flushTags(tags: readonly OciTagDto[]): void {
     http.expectOne('/artifacts/api/repositories/qits/images/qits-ci/tags').flush({ tags });
+    http.expectOne('/artifacts/api/repositories/qits/images/qits-ci/manifests').flush({
+      manifests: tags.map((row) => ({
+        digest: row.digest,
+        mediaType: 'application/vnd.oci.image.manifest.v1+json',
+        sizeBytes: row.sizeBytes,
+        createdAt: row.createdAt,
+        accessedAt: row.accessedAt,
+        tags: [row.tag],
+      })),
+    });
   }
 
-  it('reads exactly two requests, and none per tag', async () => {
+  it('reads exactly three requests, and none per row', async () => {
     await open();
     flushImage();
     flushTags([tag(FULL_SHA), tag('latest')]);
@@ -79,6 +90,78 @@ describe('ImagePage', () => {
 
     http.verify();
     expect(text()).toContain('2 tags · 2 manifests');
+  });
+
+  it('shows a real last access and distinguishes a never-read tag', async () => {
+    await open();
+    flushImage();
+    flushTags([
+      tag('used', { accessedAt: '2026-08-01T09:10:11Z' }),
+      tag('unused', { accessedAt: null }),
+    ]);
+    await settle();
+
+    expect(text()).toContain('Last accessed');
+    expect(text()).toContain('1 Aug 2026 09:10:11Z');
+    expect(text()).toContain('Never');
+  });
+
+  it('shows untagged manifests in the cleanup inventory', async () => {
+    await open();
+    flushImage();
+    http.expectOne('/artifacts/api/repositories/qits/images/qits-ci/tags').flush({ tags: [] });
+    http.expectOne('/artifacts/api/repositories/qits/images/qits-ci/manifests').flush({
+      manifests: [
+        {
+          digest: 'sha256:untagged0123456789',
+          mediaType: 'application/vnd.oci.image.manifest.v1+json',
+          sizeBytes: 1024,
+          createdAt: '2026-07-31T14:06:23Z',
+          accessedAt: null,
+          tags: [],
+        },
+      ],
+    });
+    await settle();
+
+    expect(text()).toContain('Cleanup inventory');
+    expect(text()).toContain('Untagged');
+  });
+
+  it('reports a failed cleanup inventory independently of the tag table', async () => {
+    await open();
+    flushImage();
+    http.expectOne('/artifacts/api/repositories/qits/images/qits-ci/tags').flush({ tags: [] });
+    http
+      .expectOne('/artifacts/api/repositories/qits/images/qits-ci/manifests')
+      .flush({ message: 'down' }, { status: 503, statusText: 'Unavailable' });
+    await settle();
+
+    expect(text()).toContain('Could not load the manifests');
+    expect(text()).toContain('503');
+  });
+
+  it('submits UTC and never-accessed filters to both artifact listings', async () => {
+    await open();
+    flushImage();
+    flushTags([]);
+    await settle();
+
+    const created = page().querySelector<HTMLInputElement>('input[name="createdAfter"]')!;
+    created.value = '2026-07-01T12:30';
+    created.dispatchEvent(new Event('input'));
+    const access = page().querySelector<HTMLSelectElement>('select[name="accessState"]')!;
+    access.value = 'never';
+    access.dispatchEvent(new Event('change'));
+    page().querySelector<HTMLFormElement>('form')!.dispatchEvent(new Event('submit'));
+    await settle();
+
+    for (const suffix of ['tags', 'manifests']) {
+      const request = http.expectOne((candidate) => candidate.url.endsWith(`/${suffix}`));
+      expect(request.request.params.get('created-after')).toBe('2026-07-01T12:30:00Z');
+      expect(request.request.params.get('never-accessed')).toBe('true');
+      request.flush(suffix === 'tags' ? { tags: [] } : { manifests: [] });
+    }
   });
 
   it('leads with the per-image union and labels it as one', async () => {
@@ -163,7 +246,19 @@ describe('ImagePage', () => {
   it('reports the manifests no tag points at, whose bytes are still in the union', async () => {
     await open();
     flushImage({ tagCount: 87, manifestCount: 155 });
-    flushTags([tag(FULL_SHA)]);
+    http
+      .expectOne('/artifacts/api/repositories/qits/images/qits-ci/tags')
+      .flush({ tags: [tag(FULL_SHA)] });
+    http.expectOne('/artifacts/api/repositories/qits/images/qits-ci/manifests').flush({
+      manifests: Array.from({ length: 68 }, (_, index) => ({
+        digest: `sha256:untagged${index}`,
+        mediaType: 'application/vnd.oci.image.manifest.v1+json',
+        sizeBytes: 1,
+        createdAt: '2026-07-31T14:06:23Z',
+        accessedAt: null,
+        tags: [],
+      })),
+    });
     await settle();
 
     expect(text()).toContain('68 manifests that no tag points at');

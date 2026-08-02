@@ -7,10 +7,11 @@ import {
   signal,
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
+import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink, convertToParamMap } from '@angular/router';
 import { QitsButton } from '@qits/ui-components';
 import { ArtifactsApi } from '../api/artifacts-api';
-import type { OciImageDto, OciTagDto } from '../api/dto';
+import type { ArtifactFilters, OciImageDto, OciManifestDto, OciTagDto } from '../api/dto';
 import { Async } from '../ui/async';
 import { Empty } from '../ui/empty';
 import {
@@ -28,11 +29,13 @@ import { LOADING, failed, ready, type Loadable } from '../ui/loadable';
  * One image: its tags, the manifest each points at, and the one honest link this platform has
  * between its artifact store and its build history.
  *
- * **Load budget: `2 + 0`.**
+ * **Load budget: `3 + 0`.**
  *
  * - `GET …/repositories/{repo}/images` — for this image's per-image union, which is the headline
  *   size and is not derivable from the tags below without adding numbers that must not be added.
  * - `GET …/repositories/{repo}/images/{image}/tags` — the table.
+ * - `GET …/repositories/{repo}/images/{image}/manifests` — the cleanup-complete inventory,
+ *   including manifests no current tag names.
  *
  * Nothing per row: a tag arrives with its digest, its size and its date.
  *
@@ -57,7 +60,7 @@ import { LOADING, failed, ready, type Loadable } from '../ui/loadable';
 @Component({
   selector: 'app-image-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [Async, Empty, QitsButton, RouterLink],
+  imports: [Async, Empty, FormsModule, QitsButton, RouterLink],
   templateUrl: './image-page.html',
   styleUrls: ['../ui/page.css', './image-page.css'],
 })
@@ -80,6 +83,7 @@ export class ImagePage {
   protected readonly imageName = computed(() => this.params().get('image') ?? '');
 
   protected readonly tags = signal<Loadable<readonly OciTagDto[]>>(LOADING);
+  protected readonly manifests = signal<Loadable<readonly OciManifestDto[]>>(LOADING);
 
   /**
    * The image's own row, for the headline union. Its failure is quiet on purpose: the tags are
@@ -97,6 +101,19 @@ export class ImagePage {
   /** Full `sha256:…` digests rather than the shortened form. Free, so it is a local signal. */
   protected readonly fullDigests = signal(false);
 
+  protected createdAfter = '';
+  protected createdBefore = '';
+  protected accessedAfter = '';
+  protected accessedBefore = '';
+  protected minSize: number | null = null;
+  protected maxSize: number | null = null;
+  protected accessState = '';
+
+  protected readonly manifestRows = computed(() => {
+    const state = this.manifests();
+    return state.kind === 'ready' ? state.value : [];
+  });
+
   /** `4.04 GiB (union over this image's blobs) · 22 tags · 22 manifests` */
   protected readonly lede = computed(() => {
     const image = this.image();
@@ -110,10 +127,12 @@ export class ImagePage {
     );
   });
 
-  /** Manifests this table cannot show, because nothing points at them. */
+  /** Exact count from the cleanup inventory; summary tag/manifest counts cannot derive this. */
   protected readonly untagged = computed(() => {
-    const image = this.image();
-    return image ? Math.max(0, image.manifestCount - image.tagCount) : 0;
+    const state = this.manifests();
+    return state.kind === 'ready'
+      ? state.value.filter((manifest) => manifest.tags.length === 0).length
+      : 0;
   });
 
   protected readonly untaggedNote = computed(() => plural(this.untagged(), 'manifest'));
@@ -129,7 +148,7 @@ export class ImagePage {
   }
 
   protected async reload(): Promise<void> {
-    await Promise.all([this.loadImage(), this.loadTags()]);
+    await Promise.all([this.loadImage(), this.loadTags(), this.loadManifests()]);
   }
 
   private async loadImage(): Promise<void> {
@@ -145,10 +164,49 @@ export class ImagePage {
   protected async loadTags(): Promise<void> {
     this.tags.set(LOADING);
     try {
-      this.tags.set(ready(await this.api.tags(this.repoName(), this.imageName())));
+      this.tags.set(ready(await this.api.tags(this.repoName(), this.imageName(), this.filters())));
     } catch (error) {
       this.tags.set(failed(error));
     }
+  }
+
+  protected async loadManifests(): Promise<void> {
+    this.manifests.set(LOADING);
+    try {
+      this.manifests.set(
+        ready(await this.api.manifests(this.repoName(), this.imageName(), this.filters())),
+      );
+    } catch (error) {
+      this.manifests.set(failed(error));
+    }
+  }
+
+  protected applyFilters(): void {
+    void Promise.all([this.loadTags(), this.loadManifests()]);
+  }
+
+  protected clearFilters(): void {
+    this.createdAfter = '';
+    this.createdBefore = '';
+    this.accessedAfter = '';
+    this.accessedBefore = '';
+    this.minSize = null;
+    this.maxSize = null;
+    this.accessState = '';
+    this.applyFilters();
+  }
+
+  private filters(): ArtifactFilters {
+    return {
+      createdAfter: utcInstant(this.createdAfter),
+      createdBefore: utcInstant(this.createdBefore),
+      accessedAfter: utcInstant(this.accessedAfter),
+      accessedBefore: utcInstant(this.accessedBefore),
+      minSize: this.minSize ?? undefined,
+      maxSize: this.maxSize ?? undefined,
+      neverAccessed:
+        this.accessState === 'never' ? true : this.accessState === 'accessed' ? false : undefined,
+    };
   }
 
   protected toggleDigests(): void {
@@ -163,4 +221,8 @@ export class ImagePage {
   protected ciLinkLabel(tag: string): string {
     return `Open the CI explorer at repository ${this.imageName()}, to look for commit ${shortSha(tag)}`;
   }
+}
+
+function utcInstant(value: string): string | undefined {
+  return value ? `${value}:00Z` : undefined;
 }

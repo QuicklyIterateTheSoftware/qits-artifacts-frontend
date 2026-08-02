@@ -76,10 +76,52 @@ export interface OciTagDto {
   readonly digest: string;
   readonly sizeBytes: number;
   readonly createdAt: string;
+  /** Null until this tag's manifest has been read. */
+  readonly accessedAt: string | null;
 }
 
 export interface TagsResponse {
   readonly tags: readonly OciTagDto[];
+}
+
+/** One OCI manifest, including manifests no tag currently names. */
+export interface OciManifestDto {
+  readonly digest: string;
+  readonly mediaType: string;
+  readonly sizeBytes: number;
+  readonly createdAt: string;
+  readonly accessedAt: string | null;
+  readonly tags: readonly string[];
+}
+
+export interface ManifestsResponse {
+  readonly manifests: readonly OciManifestDto[];
+}
+
+/** A directly uploaded CI artifact. `metadata` remains deliberately flat and type-specific. */
+export interface ArtifactRecordDto {
+  readonly id: string;
+  readonly repository: string;
+  readonly mediatype: string;
+  readonly size: number;
+  readonly createdAt: string;
+  readonly accessedAt: string | null;
+  readonly metadata: Readonly<Record<string, string>>;
+}
+
+export interface ArtifactRecordsResponse {
+  readonly records: readonly ArtifactRecordDto[];
+}
+
+/** Inclusive server-side bounds shared by the CI-record and OCI-tag listings. */
+export interface ArtifactFilters {
+  readonly accessedAfter?: string;
+  readonly accessedBefore?: string;
+  readonly createdAfter?: string;
+  readonly createdBefore?: string;
+  readonly minSize?: number;
+  readonly maxSize?: number;
+  readonly neverAccessed?: boolean;
 }
 
 /**

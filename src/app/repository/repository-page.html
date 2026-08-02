@@ -153,6 +153,99 @@
   </section>
 }
 
+@if (isCi()) {
+  <section>
+    <form class="filters" (ngSubmit)="loadRecords()">
+      <fieldset>
+        <legend>Filter artifacts <span class="subtle">(inclusive, UTC)</span></legend>
+        <label
+          >Created after
+          <input type="datetime-local" name="createdAfter" [(ngModel)]="createdAfter"
+        /></label>
+        <label
+          >Created before
+          <input type="datetime-local" name="createdBefore" [(ngModel)]="createdBefore"
+        /></label>
+        <label
+          >Accessed after
+          <input type="datetime-local" name="accessedAfter" [(ngModel)]="accessedAfter"
+        /></label>
+        <label
+          >Accessed before
+          <input type="datetime-local" name="accessedBefore" [(ngModel)]="accessedBefore"
+        /></label>
+        <label
+          >Minimum bytes <input type="number" min="0" name="minSize" [(ngModel)]="minSize"
+        /></label>
+        <label
+          >Maximum bytes <input type="number" min="0" name="maxSize" [(ngModel)]="maxSize"
+        /></label>
+        <label
+          >Access state
+          <select name="accessState" [(ngModel)]="accessState">
+            <option value="">Any</option>
+            <option value="never">Never accessed</option>
+            <option value="accessed">Accessed</option>
+          </select>
+        </label>
+      </fieldset>
+      <div class="filter-actions">
+        <button type="submit">Apply filters</button>
+        <button type="button" (click)="clearFilters()">Clear</button>
+      </div>
+    </form>
+
+    <app-async
+      [state]="records()"
+      loadingLabel="Loading the artifacts"
+      errorLabel="Could not load the artifacts"
+      (retry)="loadRecords()"
+    />
+
+    @if (records().kind === 'ready') {
+      <div class="scroll">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Artifact</th>
+              <th scope="col">Media type</th>
+              <th scope="col">Metadata</th>
+              <th scope="col" class="num">Size</th>
+              <th scope="col">Created</th>
+              <th scope="col">Last accessed</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (record of recordRows(); track record.id + record.createdAt) {
+              <tr>
+                <th scope="row" class="mono">
+                  <a [href]="'/artifacts/api/repositories/' + repoName() + '/blobs/' + record.id">
+                    {{ shortDigest(record.id) }}
+                  </a>
+                </th>
+                <td class="subtle">{{ record.mediatype }}</td>
+                <td class="subtle metadata">{{ metadata(record) }}</td>
+                <td class="num">{{ formatBytes(record.size) }}</td>
+                <td class="subtle">{{ formatInstant(record.createdAt) }}</td>
+                <td class="subtle">
+                  {{ record.accessedAt ? formatInstant(record.accessedAt) : 'Never' }}
+                </td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="6"><app-empty message="No artifacts match these filters." /></td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <p class="note">
+        “Never” includes artifacts that predate access tracking. Access filters exclude those rows.
+      </p>
+    }
+  </section>
+}
+
 @if (hasNoListing()) {
   <app-empty [message]="emptyTypeMessage()" />
 }
