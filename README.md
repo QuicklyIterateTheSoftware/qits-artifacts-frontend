@@ -1,15 +1,20 @@
 # QitsSpaArtifacts
 
-The artifact explorer: the read-only view of what this platform stores and what it costs, served by
-qits-artifacts itself at `/artifacts/` through Quinoa. Four pages, no forms, and no writes at all.
+The artifact explorer: what this platform stores, what it costs, and — one repository at a time,
+behind a plan — what it could stop storing. Served by qits-artifacts itself at `/artifacts/` through
+Quinoa. Six pages, and almost all of it is read.
 
-- **`/artifacts/`** — every repository, with its type, how many things it holds and its own byte
-  union, beside a store-level summary panel. Two requests, and none per repository.
+- **`/artifacts/`** — every repository, with its type, how many things it holds, its own byte union
+  and what cleaning it up would free, beside a store-level summary panel. Three requests, and none
+  per repository.
 - **`/artifacts/repositories/<repo>`** — one repository, drawn as whatever its type holds: images,
   packages, or an honest empty state for the two CI types that have never held a row.
+- **`/artifacts/repositories/<repo>/cleanup`** — what collecting that repository would delete, what
+  it would keep and why each, and the one press in this application that deletes bytes.
 - **`/artifacts/repositories/<repo>/images/<image>`** — an image's tags and the manifest each points
   at, led by the per-image union.
 - **`/artifacts/repositories/<repo>/packages/<package>`** — a package's versions.
+- **`/artifacts/mirrors`** — which public registries this one mirrors, under which namespace.
 
 The tree is **repository-first**, and that is a decision rather than a default. Nothing in this
 store joins to a project: not one column, in any table. An image name equals a git-host repository
@@ -27,6 +32,22 @@ union**; the per-tag column is labelled *not additive* and is never totalled; an
 on the front page names all three figures, plus the ~124 MiB of orphaned blobs no row-based view can
 show, and the cached npm packument documents that outweigh the tarballs they index by roughly four
 to one. An unlabelled byte count on a deduped store is a lie with a number in it.
+
+**The cleanup figures are a fourth kind of byte count, and they do not add up either.** A
+repository's cleanup figure is what cleaning *that repository alone* would free: the store-wide
+reconciliation with only its dead identities applied and every other repository left standing. So a
+blob two repositories both let go of is counted in neither of their figures and dies only in a
+whole-store run — the column is a lower bound, never a total, and the table says so. A zero in it is
+four different facts (not read yet, refused because the live pins were unreachable, nobody collects
+this type, or a rule ran and found nothing), and the cell distinguishes all four rather than drawing
+them alike.
+
+**Nothing sweeps without its plan on screen.** The run lives only on the cleanup page, below the
+rendered plan, and the repository list offers review rather than execution. That guarantees the
+report was served and displayed before the invocation existed — it cannot prove anyone read it, and
+does not claim to. When the service cannot read its live pins the run affordance is **not rendered
+at all** rather than disabled, because what is on screen in that state is what the rules condemn
+rather than what a run would take.
 
 **Cached and published npm are separate pages because they are separate repositories.** Proxied npm
 outweighs published npm 1,971:1 by bytes on this deployment; one mixed listing with a filter would

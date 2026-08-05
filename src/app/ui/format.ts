@@ -109,9 +109,10 @@ export function plural(count: number, singular: string, pluralForm?: string): st
 }
 
 /**
- * What a repository of this type holds, as a word. The six archetypes count different things and
- * a column headed "items" would hide that; `itemCount` is images here, packages there, and records
- * for the two ci types that have never held one.
+ * What a repository of this type holds, as a word. The eight archetypes count different things and
+ * a column headed "items" would hide that; `itemCount` is images here, packages there, deployed
+ * files for maven, published versions for the daemons, and records for the two ci types that have
+ * never held one.
  */
 export function itemNoun(type: string): string {
   switch (type) {
@@ -121,6 +122,12 @@ export function itemNoun(type: string): string {
     case 'npm-packages':
     case 'npm-proxy':
       return 'package';
+    // A maven version is a SET of files — a jar, a pom, their checksums — so the count is files
+    // and not versions. Calling them versions would overstate the store by a factor of four.
+    case 'maven-packages':
+      return 'file';
+    case 'daemon-binaries':
+      return 'version';
     default:
       return 'record';
   }

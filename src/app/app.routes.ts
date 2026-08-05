@@ -1,5 +1,6 @@
 import type { Routes } from '@angular/router';
 import { QitsMainLayout } from '@qits/ui-components';
+import { CleanupPage } from './cleanup/cleanup-page';
 import { ImagePage } from './image/image-page';
 import { MirrorsPage } from './mirrors/mirrors-page';
 import { NotFound } from './not-found/not-found';
@@ -8,7 +9,7 @@ import { RepositoriesPage } from './repositories/repositories-page';
 import { RepositoryPage } from './repository/repository-page';
 
 /**
- * Five pages, all of them inside the platform chrome, and the drill-down is **repository-first**.
+ * Six pages, all of them inside the platform chrome, and the drill-down is **repository-first**.
  *
  * `QitsMainLayout` is the root *route* component rather than something the shell templates, so the
  * bar and the navigation mount once and survive every navigation beneath them.
@@ -38,8 +39,14 @@ import { RepositoryPage } from './repository/repository-page';
  * the domain. So the mirror repository pages link across to it and it links back, and neither
  * pretends to contain the other.
  *
- * All five pages load eagerly. There are five of them, they share every component below them, and
- * a lazy chunk boundary would be ceremony that costs a round trip.
+ * **`repositories/:repo/cleanup` is a segment because it is a place, not a panel.** It costs a
+ * request, which is the rule above — but it earns the path for a second reason the other levels do
+ * not have: it is the review a destructive action is authorised from, and a review that lives in a
+ * modal over a table is a review with no address. As a route it is bookmarkable, it survives a
+ * reload, and the back button leaves it rather than half-dismissing it.
+ *
+ * All six pages load eagerly. There are six of them, they share every component below them, and a
+ * lazy chunk boundary would be ceremony that costs a round trip.
  *
  * The `**` route sits inside the layout: `/artifacts/` is a segment this application owns outright,
  * so an unknown URL under it is an ordinary 404 and is drawn with the chrome around it.
@@ -52,6 +59,7 @@ export const routes: Routes = [
       { path: '', component: RepositoriesPage },
       { path: 'mirrors', component: MirrorsPage },
       { path: 'repositories/:repo', component: RepositoryPage },
+      { path: 'repositories/:repo/cleanup', component: CleanupPage },
       { path: 'repositories/:repo/images/:image', component: ImagePage },
       { path: 'repositories/:repo/packages/:package', component: PackagePage },
       { path: '**', component: NotFound },

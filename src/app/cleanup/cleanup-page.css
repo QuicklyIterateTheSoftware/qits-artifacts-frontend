@@ -1,0 +1,112 @@
+/* The one page in this application that can delete something, laid out as a document rather than a
+   control panel: the plan reads top to bottom and the press is at the bottom of it. That ordering
+   is the review gate, so nothing here may float, stick or otherwise arrive before the plan does. */
+
+.rule {
+  margin: 0 0 1rem;
+}
+
+.rule p {
+  margin: 0 0 0.35rem;
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.configured {
+  max-width: 80ch;
+  color: #374151;
+}
+
+.plan h2,
+.receipt h2 {
+  margin: 1.5rem 0 0.5rem;
+  font-size: 1.05rem;
+}
+
+.receipt h3 {
+  margin: 1rem 0 0.35rem;
+  font-size: 0.95rem;
+}
+
+.figures {
+  margin: 0 0 0.5rem;
+  max-width: 80ch;
+}
+
+.empty {
+  margin: 0.15rem 0;
+  color: #6b7280;
+  font-style: italic;
+}
+
+/* Identities are coordinates and rules — long, and worth reading whole. A table would truncate
+   them; a list wraps. */
+.identities,
+.counters,
+.pins {
+  margin: 0.35rem 0 0;
+  padding-left: 1.1rem;
+  max-width: 90ch;
+}
+
+.identities li,
+.counters li,
+.pins li {
+  margin-bottom: 0.2rem;
+  overflow-wrap: anywhere;
+}
+
+.identities.kept {
+  color: #4b5563;
+}
+
+.pins .mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.85em;
+}
+
+.run-open {
+  margin: 1.5rem 0 0;
+}
+
+/* The confirm block, in the mirrors page's idiom: page furniture rather than a dialog, with room
+   for the sentence about what is and is not touched to be a sentence. */
+.confirm {
+  margin: 1.5rem 0 0;
+  padding: 0.75rem 1rem;
+  border: 1px solid #fde68a;
+  border-radius: 0.5rem;
+  background: #fffbeb;
+  max-width: 80ch;
+}
+
+.confirm p {
+  margin: 0.25rem 0 0.75rem;
+}
+
+.confirm-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.35rem;
+}
+
+.receipt {
+  margin: 1.5rem 0 0;
+  padding: 0.75rem 1rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  background: #fff;
+}
+
+.note code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.9em;
+}
+
+.note {
+  max-width: 90ch;
+}

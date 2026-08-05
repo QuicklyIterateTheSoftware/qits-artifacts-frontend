@@ -2,28 +2,30 @@ import type { QitsBadgeTone } from '@qits/ui-components';
 import type { RepositoryTypeSlug } from '../api/dto';
 
 /**
- * What the six archetypes are, said in the UI's words.
+ * What the eight archetypes are, said in the UI's words.
  *
  * The list is closed and it is the service's: `artifact_repository.type` carries a named check
- * constraint, so a seventh type is a schema migration rather than a string. Maven is not one of
- * them — it is named in the service's README under "deliberately not here", and this app must not
- * imply otherwise by leaving a hopeful default in place.
+ * constraint, so a ninth type is a schema migration rather than a string. Maven used to be named
+ * here as deliberately absent; it shipped, and so did `daemon-binaries`, and both are now ordinary
+ * entries below.
  *
  * Tones are semantic and deliberately quiet. Nothing on this page is a status: a `ci-screenshots`
  * repository with no rows is not *failing*, it is a shape the golden-diff loop has never filled, so
  * it is drawn neutral rather than in a warning colour that would read as an incident.
  *
- * **The two cached types are neutral and the two hosted ones are not**, which is the only
- * distinction the colours carry: `npm-packages` and `oci-images` hold bytes this platform produced
- * and is the only copy of, while `npm-proxy` and `oci-mirror` hold bytes borrowed from a public
- * registry that could be fetched again. That is worth a glance's worth of difference and nothing
- * stronger.
+ * **The cached types are neutral and the hosted ones are not**, which is the only distinction the
+ * colours carry: `npm-packages`, `oci-images`, `maven-packages` and `daemon-binaries` hold bytes
+ * this platform produced and is the only copy of, while `npm-proxy` and `oci-mirror` hold bytes
+ * borrowed from a public registry that could be fetched again. That is worth a glance's worth of
+ * difference and nothing stronger.
  */
 export function typeTone(type: RepositoryTypeSlug | string): QitsBadgeTone {
   switch (type) {
     case 'oci-images':
+    case 'daemon-binaries':
       return 'info';
     case 'npm-packages':
+    case 'maven-packages':
       return 'success';
     default:
       return 'neutral';
@@ -45,6 +47,10 @@ export function typeSummary(type: RepositoryTypeSlug | string): string {
       return 'Golden screenshots for the CI diff loop, paired by branch and commit.';
     case 'ci-videos':
       return 'Golden videos for the CI diff loop, paired by branch and commit.';
+    case 'maven-packages':
+      return 'A hosted maven repository. Release paths are immutable: re-deploying one with different bytes is refused, and a version is a set of files rather than a single one.';
+    case 'daemon-binaries':
+      return "The platform's own daemon executables, downloaded and run by the services that launch them. Versions are immutable, and a pin a bootstrap re-reads is what resolves one.";
     default:
       return '';
   }

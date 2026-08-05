@@ -7,6 +7,9 @@ import type {
   ArtifactRecordDto,
   ArtifactRecordsResponse,
   ArtifactFilters,
+  GcRepositoriesPlanResponse,
+  GcRepositoryPlanReportDto,
+  GcRepositorySweepReportDto,
   ImagesResponse,
   ManifestsResponse,
   MirrorUpstreamDto,
@@ -44,13 +47,14 @@ import type {
  * `@qits/ui-components` — and the slash in it is not a path separator; `encodeURIComponent` turns
  * it into `@qits%2Fui-components`, which is the form the service's route expects.
  *
- * **The three mirror-upstream calls are the only writes this application makes, and they carry no
- * credential.** That is not an omission to fill in later: no page in any qits SPA has ever sent a
+ * **The writes carry no credential, and one of them now deletes.** The two mirror-upstream writes
+ * changed a row and no bytes; {@link ArtifactsApi.gcRepositorySweep} unlinks files. Neither sends a
+ * token, and that is not an omission to fill in later: no page in any qits SPA has ever sent a
  * machine token, because the browser is not one of the callers those tokens exist for.
  * qits-artifacts guards every write under `/artifacts/api` with a static `X-Artifacts-Token` that
- * only a shell or a provisioning script holds, so when a deployment sets that token these two
- * writes answer 401 and the page says exactly that. Storing a token in this app would be inventing
- * a credential store to defeat a guard rather than to satisfy it.
+ * only a shell or a provisioning script holds, so when a deployment sets that token these writes
+ * answer 401 and the page says exactly that. Storing a token in this app would be inventing a
+ * credential store to defeat a guard rather than to satisfy it.
  */
 @Injectable({ providedIn: 'root' })
 export class ArtifactsApi {
@@ -197,6 +201,48 @@ export class ArtifactsApi {
     await firstValueFrom(
       this.http.delete<void>(
         `${this.base}/artifacts/api/mirror-upstreams/${encodeURIComponent(domain)}`,
+      ),
+    );
+  }
+
+  /**
+   * Every repository's expected cleanup, in **one** call.
+   *
+   * There is deliberately no per-repository variant of this read. A plan costs the service a full
+   * census — a walk of the blob volume and a pass over every protocol table — plus two
+   * cross-service calls to qits-cd and qits-ci, so a table that asked per row would cost N censuses
+   * and 2N of those calls to draw one column. The service answers every row from one run for
+   * exactly that reason.
+   */
+  gcRepositories(): Promise<GcRepositoriesPlanResponse> {
+    return firstValueFrom(
+      this.http.get<GcRepositoriesPlanResponse>(`${this.base}/artifacts/api/gc/repositories`),
+    );
+  }
+
+  /** One repository's cleanup in full: what would die, what would not, and why each. */
+  gcRepositoryPlan(repository: string): Promise<GcRepositoryPlanReportDto> {
+    return firstValueFrom(
+      this.http.get<GcRepositoryPlanReportDto>(
+        `${this.base}/artifacts/api/gc/repositories/${encodeURIComponent(repository)}/plan`,
+      ),
+    );
+  }
+
+  /**
+   * Runs one repository's cleanup, and answers the receipt of what it did.
+   *
+   * **The only call this application makes that deletes anything**, and the scope is a path segment
+   * rather than a parameter for that reason: a request that lost its scope would be a whole-store
+   * sweep, while a request with a wrong segment is a 404. The body is empty on purpose — there is
+   * no way to submit a plan, at any scope. The service computes a fresh one inside the request and
+   * applies that; the report this page showed is what authorises the press, never what executes.
+   */
+  gcRepositorySweep(repository: string): Promise<GcRepositorySweepReportDto> {
+    return firstValueFrom(
+      this.http.post<GcRepositorySweepReportDto>(
+        `${this.base}/artifacts/api/gc/repositories/${encodeURIComponent(repository)}/sweep`,
+        {},
       ),
     );
   }

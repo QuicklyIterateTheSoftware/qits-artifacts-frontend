@@ -2,9 +2,10 @@
   <div>
     <h1>Artifacts</h1>
     <p class="lede">
-      What this platform stores, and what it costs. {{ lede() }} Nothing here deletes, expires or
-      reclaims a byte — the one thing this explorer can change is
-      <a routerLink="/mirrors">which registries are mirrored</a>.
+      What this platform stores, and what it costs. {{ lede() }} Two things here can change it:
+      <a routerLink="/mirrors">which registries are mirrored</a>, and a repository's
+      <strong>cleanup</strong> — the one action in this explorer that deletes bytes, taken one
+      repository at a time and never without its plan on screen first.
     </p>
   </div>
   <qits-button variant="secondary" size="sm" (pressed)="reload()">Refresh</qits-button>
@@ -19,11 +20,33 @@
       (retry)="loadRepositories()"
     />
 
+    <app-async
+      [state]="cleanup()"
+      loadingLabel="Loading the cleanup plan"
+      errorLabel="Could not read what a cleanup would free"
+      (retry)="loadCleanup()"
+    />
+
+    @if (pinsDown(); as why) {
+      <p class="page-error" role="status">
+        <span>
+          ⚠ No cleanup can run right now: the live pins could not be read — {{ why }}. A run reads
+          them once and aborts whole when a source cannot answer, so this is the whole store rather
+          than one repository. The figures below are what each rule condemns, not what a run today
+          would take.
+        </span>
+      </p>
+    }
+
     @if (repositories().kind === 'ready') {
       <div class="scroll">
         <table>
           <caption>
-            Every size below is a union over that repository's own blobs.
+            Every size below is a union over that repository's own blobs. The Cleanup column is a
+            different question again: what cleaning
+            <em>that repository alone</em>
+            would free, so a blob two repositories both let go of is counted in neither. The column
+            is a lower bound on a whole-store run and must not be added up.
           </caption>
           <thead>
             <tr>
@@ -31,6 +54,8 @@
               <th scope="col">Type</th>
               <th scope="col">Contents</th>
               <th scope="col" class="num">Size (union)</th>
+              <th scope="col" class="num">Cleanup</th>
+              <th scope="col"><span class="sr">Actions</span></th>
             </tr>
           </thead>
           <tbody>
@@ -44,10 +69,48 @@
                 </td>
                 <td>{{ contents(repository) }}</td>
                 <td class="num">{{ formatBytes(repository.sizeBytes) }}</td>
+                <td class="num cleanup">
+                  @let cell = cleanupCell(repository);
+                  @switch (cell.kind) {
+                    @case ('unknown') {
+                      <span class="subtle">{{ none }}</span>
+                    }
+                    @case ('refused') {
+                      <span class="refused" [title]="$any(cell).title">refused</span>
+                    }
+                    @case ('not-collected') {
+                      <span class="subtle" [title]="$any(cell).title">not collected</span>
+                    }
+                    @case ('nothing') {
+                      <span class="subtle">nothing</span>
+                    }
+                    @case ('figure') {
+                      <a
+                        [routerLink]="['/repositories', repository.name, 'cleanup']"
+                        [title]="$any(cell).title"
+                      >
+                        {{ $any(cell).text }}
+                      </a>
+                      @if (!$any(cell).runnable) {
+                        <span
+                          class="held"
+                          title="The live pins could not be read, so no cleanup can be run right now."
+                        >
+                          not runnable now
+                        </span>
+                      }
+                    }
+                  }
+                </td>
+                <td class="actions">
+                  <a class="review" [routerLink]="['/repositories', repository.name, 'cleanup']">
+                    Review cleanup
+                  </a>
+                </td>
               </tr>
             } @empty {
               <tr>
-                <td colspan="4">
+                <td colspan="6">
                   <app-empty message="This store holds no repositories at all." />
                 </td>
               </tr>
@@ -56,7 +119,7 @@
           <tfoot>
             @if (mirrorCount() > 0) {
               <tr>
-                <td colspan="4">
+                <td colspan="6">
                   {{ mirrorNote() }} Each fronts one upstream registry and holds only what a build
                   has pulled through it. They are the one part of this store an operator creates and
                   removes, on the <a routerLink="/mirrors">mirror upstreams</a> page.
@@ -64,7 +127,7 @@
               </tr>
             }
             <tr>
-              <td colspan="4">
+              <td colspan="6">
                 The git host is not in this table. It runs in the same service and answers under the
                 same URL segment, and that is all it shares: separate volume, no blob store, no
                 rows, and no entry of its own here. Clone and push work as they always have — this

@@ -1,0 +1,264 @@
+<nav class="crumbs" aria-label="Breadcrumb">
+  <a routerLink="/">Artifacts</a><span class="sep" aria-hidden="true">/</span
+  ><a [routerLink]="['/repositories', repoName()]">{{ repoName() }}</a
+  ><span class="sep" aria-hidden="true">/</span><span>Cleanup</span>
+</nav>
+
+<header class="head">
+  <div>
+    <h1>Cleanup — {{ repoName() }}</h1>
+    <p class="lede">
+      What collecting this repository would delete, and what it would free. Nothing on this page has
+      happened yet: it is a dry run, taken from the store as it stood a moment ago.
+    </p>
+  </div>
+  <qits-button variant="secondary" size="sm" (pressed)="load()">Re-read the plan</qits-button>
+</header>
+
+<app-async
+  [state]="report()"
+  loadingLabel="Loading the cleanup plan"
+  errorLabel="Could not load the cleanup plan"
+  (retry)="load()"
+/>
+
+@if (plan(); as plan) {
+  <section class="rule">
+    <p>
+      <qits-badge [label]="plan.type" [tone]="typeTone(plan.type)" />
+      <span class="subtle">
+        Planned at {{ formatInstant(plan.generatedAt) }} — a photograph, not a promise: a push since
+        then makes it stale, which is why a run computes its own plan again and applies that one.
+      </span>
+    </p>
+    @if (plan.configuration.rule) {
+      <p class="configured">{{ plan.configuration.rule }}</p>
+    }
+    @if (plan.note) {
+      <p class="note">{{ plan.note }}</p>
+    }
+  </section>
+
+  @if (!plan.executable) {
+    <p class="page-error" role="alert">
+      <span>
+        ⚠ This cleanup cannot be run right now: {{ plan.pinFailures.join('; ') }}. A run reads the
+        live pins from qits-cd and qits-ci once at its start and aborts whole when either cannot
+        answer — because a keep-set assembled without a live pin is a keep-set assembled from
+        “nothing is pinned”. The plan below is still worth reading; there is simply nothing to
+        press.
+      </span>
+    </p>
+  }
+
+  @if (plan.error) {
+    <p class="page-error" role="alert">
+      <span>
+        ⚠ Nothing of this repository was planned: {{ plan.error }}. Its type failed closed, so every
+        blob it holds is treated as live and no figure below is a finding.
+      </span>
+    </p>
+  } @else if (notCollected()) {
+    <p class="note">
+      Nothing collects this repository's type, so nothing of it is ever deleted.
+      {{ plan.note }}
+    </p>
+  }
+
+  @if (receipt(); as receipt) {
+    <section class="receipt">
+      <h2>What the run did</h2>
+      <p class="subtle">Run at {{ formatInstant(receipt.executedAt) }}.</p>
+
+      @if (receipt.aborted) {
+        <p class="page-error" role="alert">
+          <span>
+            ⚠ The run was aborted and <strong>nothing was deleted</strong>: {{ receipt.aborted }}. A
+            run reads its live pins before it takes a census, and a source that cannot answer ends
+            it there.
+          </span>
+        </p>
+      } @else {
+        <p class="figures">
+          <strong>{{ identities(receipt.deleted.length) }}</strong>
+          deleted, <strong>{{ receipt.sweep.blobsUnlinked }}</strong> blob files unlinked,
+          <strong>{{ formatBytes(receipt.sweep.bytesReclaimed) }}</strong> reclaimed.
+        </p>
+        <ul class="counters">
+          @if (receipt.sweep.withheldByGraceWindow > 0) {
+            <li>
+              {{ receipt.sweep.withheldByGraceWindow }} withheld by the
+              {{ receipt.graceWindow }} grace window ({{
+                formatBytes(receipt.sweep.withheldBytes)
+              }}) — not lost, and their rows were withheld with them so a later run takes both
+              together.
+            </li>
+          }
+          @if (receipt.sweep.stillReferenced > 0) {
+            <li>
+              {{ receipt.sweep.stillReferenced }} refused at the unlink because something still
+              named them. That is the mechanism working, not a failure.
+            </li>
+          }
+          @if (receipt.sweep.alreadyGone > 0) {
+            <li>{{ receipt.sweep.alreadyGone }} had no file left to unlink.</li>
+          }
+        </ul>
+
+        @if (receipt.error) {
+          <p class="page-error" role="alert">
+            <span>⚠ {{ receipt.error }}</span>
+          </p>
+        }
+
+        @if (receipt.deleted.length > 0) {
+          <ul class="identities">
+            @for (identity of receipt.deleted; track identity.identity) {
+              <li>{{ identityLine(identity) }}</li>
+            }
+          </ul>
+        }
+
+        @if (receipt.withheldByGraceWindow.length > 0) {
+          <h3>Withheld whole, rows intact</h3>
+          <ul class="identities">
+            @for (identity of receipt.withheldByGraceWindow; track identity.identity) {
+              <li>{{ identityLine(identity) }}</li>
+            }
+          </ul>
+        }
+      }
+
+      <p class="note">
+        The plan above this receipt is gone on purpose: it described a store that no longer exists.
+        <qits-button variant="secondary" size="sm" (pressed)="load()">
+          Re-read the plan
+        </qits-button>
+      </p>
+    </section>
+  } @else {
+    <section class="plan">
+      <h2>Would be deleted</h2>
+      @if (plan.dead.length === 0) {
+        <p class="empty">
+          Nothing. Every identity in this repository is kept by a rule, and the rules are listed
+          below.
+        </p>
+      } @else {
+        <p class="figures">
+          <strong>{{ identities(plan.dead.length) }}</strong>
+          , freeing <strong>{{ formatBytes(plan.sweep.reclaimableBytes) }}</strong> in
+          {{ plan.sweep.blobCount }} blob files — bytes nothing else in this store names. Not
+          additive with any other repository's figure.
+        </p>
+        @if (withheldNote(); as held) {
+          <p class="note">{{ held }}</p>
+        }
+        @if (structuralNote(); as structural) {
+          <p class="note">{{ structural }}</p>
+        }
+        <ul class="identities">
+          @for (identity of plan.dead; track identity.identity) {
+            <li>{{ identityLine(identity) }}</li>
+          }
+        </ul>
+      }
+
+      <h2>Would be kept</h2>
+      @if (plan.kept.length === 0) {
+        <p class="empty">Nothing — this repository holds no identities of its type at all.</p>
+      } @else {
+        <button
+          class="disclosure"
+          type="button"
+          [attr.aria-expanded]="showKept()"
+          (click)="showKept.set(!showKept())"
+        >
+          <span class="chevron" aria-hidden="true"></span>
+          {{ identities(plan.kept.length) }} kept, each with the rule that saved it
+        </button>
+        @if (showKept()) {
+          <ul class="identities kept">
+            @for (identity of plan.kept; track identity.identity) {
+              <li>{{ identityLine(identity) }}</li>
+            }
+          </ul>
+        }
+      }
+
+      <h2>How this run read its live pins</h2>
+      <p class="note">
+        Half of what is kept above is another service's answer, read once at the start of this run
+        and never cached. Checking that these are the versions your deployments are actually running
+        is the first thing a review of this plan does.
+      </p>
+      <ul class="pins">
+        @for (pin of plan.pins; track pin.source) {
+          <li>
+            <span class="mono">{{ pinLine(pin) }}</span>
+            <span class="subtle"> — {{ pin.outcome }}</span>
+          </li>
+        }
+      </ul>
+
+      <p class="note">
+        {{ plan.untouchable.blobCount }} blob files ({{ formatBytes(plan.untouchable.bytes) }}) are
+        outside this mechanism entirely: {{ plan.untouchable.reason }}.
+      </p>
+
+      @if (runError(); as problem) {
+        <p class="page-error" role="alert">
+          <span>⚠ {{ problem }}</span>
+        </p>
+      }
+
+      @if (runnable()) {
+        @if (!confirming()) {
+          <p class="run-open">
+            <qits-button variant="primary" size="sm" (pressed)="askRun()">
+              Run this cleanup…
+            </qits-button>
+          </p>
+        } @else {
+          <div class="confirm">
+            <p role="alert">
+              Run this cleanup on <strong>{{ repoName() }}</strong
+              >? It deletes <strong>{{ identities(plan.dead.length) }}</strong> listed above and
+              unlinks <strong>{{ plan.sweep.blobCount }}</strong> blob files, reclaiming
+              <strong>{{ formatBytes(plan.sweep.reclaimableBytes) }}</strong
+              >. <strong>This is not reversible</strong> — the bytes are gone, and an npm version's
+              name is spent for good. Nothing outside this repository is touched: a blob any other
+              repository still names is left where it is.
+            </p>
+            <div class="confirm-actions">
+              <qits-button
+                variant="primary"
+                size="sm"
+                [busy]="busy()"
+                [disabled]="busy()"
+                (pressed)="run()"
+              >
+                Delete {{ runLabel() }}
+              </qits-button>
+              <qits-button variant="ghost" size="sm" [disabled]="busy()" (pressed)="cancelRun()">
+                Keep everything
+              </qits-button>
+            </div>
+          </div>
+        }
+      } @else if (plan.executable && plan.dead.length === 0 && !plan.error) {
+        <p class="note">
+          There is nothing to run: this plan condemns nothing, so a cleanup now would delete nothing
+          and free nothing.
+        </p>
+      }
+    </section>
+  }
+
+  <p class="note">
+    Writes here are guarded by the service, not by this page: qits-artifacts checks a static
+    <code>X-Artifacts-Token</code> on every write under <code>/artifacts/api</code>, and no qits
+    frontend holds a credential of any kind. Where a deployment sets that token, running a cleanup
+    answers 401 and says so — the operator's shell is the caller that can carry it.
+  </p>
+}

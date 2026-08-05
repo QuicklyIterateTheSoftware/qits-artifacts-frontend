@@ -25,3 +25,55 @@
 .rail {
   min-width: 0;
 }
+
+/* A header cell whose content is for a screen reader only — the actions column has no heading
+   worth showing, and an empty <th> is a heading a screen reader announces as nothing. */
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.actions {
+  text-align: right;
+  padding-right: 0;
+}
+
+.review {
+  color: #4338ca;
+  font-size: 0.88rem;
+}
+
+/* The cleanup cell holds a figure and, when the pins are down, a marker under it. Right-aligned
+   with the other numbers, but it is allowed two lines — the marker is the difference between a
+   figure that can be acted on and one that merely can be read. */
+.cleanup {
+  white-space: normal;
+}
+
+.cleanup .held,
+.cleanup .refused {
+  display: block;
+  font-size: 0.78rem;
+}
+
+.cleanup .held {
+  color: #92400e;
+}
+
+/* A refusal is not a warning about the store, it is a statement about this run — quiet, and
+   distinguishable from "nothing", which is the one thing it must never be read as. */
+.cleanup .refused {
+  display: inline;
+  color: #92400e;
+  border-bottom: 1px dotted currentColor;
+  cursor: help;
+}
+
+.cleanup .subtle[title] {
+  border-bottom: 1px dotted currentColor;
+  cursor: help;
+}

@@ -16,20 +16,34 @@
  */
 
 /**
- * The six archetypes `RepositoryType` allows, in their kebab wire form. Maven is not one.
+ * The eight archetypes `RepositoryType` allows, in their kebab wire form.
  *
- * `oci-mirror` is the newest and the only one an operator can create: one row per registered
- * upstream registry, named by the namespace pulls travel under. See {@link MirrorUpstreamDto}.
+ * The list is closed and it is the service's: `artifact_repository.type` carries a named check
+ * constraint, so a ninth is a schema migration rather than a string. This union was stale at six
+ * for two releases — `maven-packages` and `daemon-binaries` shipped without it — and a stale union
+ * is worse than a loose one here, because a type missing from it silently loses its tone, its
+ * summary and the noun its count is drawn with.
+ *
+ * `oci-mirror` is the only one an operator can create: one row per registered upstream registry,
+ * named by the namespace pulls travel under. See {@link MirrorUpstreamDto}.
  */
 export type RepositoryTypeSlug =
-  'ci-screenshots' | 'ci-videos' | 'oci-images' | 'oci-mirror' | 'npm-packages' | 'npm-proxy';
+  | 'ci-screenshots'
+  | 'ci-videos'
+  | 'oci-images'
+  | 'oci-mirror'
+  | 'npm-packages'
+  | 'npm-proxy'
+  | 'maven-packages'
+  | 'daemon-binaries';
 
 /**
  * One repository of the store.
  *
- * `itemCount` counts whatever the type stores — images for `oci-images`, packages for the two npm
- * types, records for the two ci ones — which is why the UI never prints the bare number without
- * the noun beside it.
+ * `itemCount` counts whatever the type stores — images for the two OCI types, packages for the two
+ * npm ones, deployed files for `maven-packages`, published versions for `daemon-binaries`, records
+ * for the two ci ones — which is why the UI never prints the bare number without the noun beside
+ * it.
  *
  * `sizeBytes` is this repository's own **referenced-blob union**, or null where the service cannot
  * answer one.
@@ -221,4 +235,170 @@ export interface MirrorUpstreamsResponse {
 
 export interface MirrorUpstreamResponse {
   readonly upstream: MirrorUpstreamDto;
+}
+
+/*
+ * Garbage collection — the one part of this store that can be made smaller.
+ *
+ * Three rules run through every shape below, and the UI is wrong if it draws any of them away.
+ *
+ * **These byte figures do not add up either, and for a new reason.** Each repository's figure is
+ * what a cleanup of *that repository alone* would free: the store-wide reconciliation with only
+ * its dead identities applied and everything else — other repositories of the same type included —
+ * left standing. So a blob two repositories both condemn counts in neither of their figures and
+ * dies only in a whole-store run. The column is a lower bound, never a total, and must never be
+ * summed.
+ *
+ * **`structural` and `sweep` answer different questions.** `structural` is what the rule condemns
+ * whatever the age of the files; `sweep` is what a run right now would actually unlink, with the
+ * difference reported as withheld by the grace window. Neither can stand alone: the first promises
+ * disk a run tonight will not deliver, the second reads as "nothing to clean" for a repository
+ * pushed to this morning.
+ *
+ * **`executable` is about the run, not the row.** The service reads its live pins from qits-cd and
+ * qits-ci once per run, and a source that cannot answer aborts the whole run — so no repository is
+ * runnable while another is not, and the flag lives on the envelope rather than on each entry.
+ */
+
+/** One thing a cleanup would delete or keep, and the named rule that decided it. */
+export interface GcIdentityDto {
+  readonly repository: string;
+  /** The type's own coordinate, spelled the way that type's tools spell it. */
+  readonly identity: string;
+  /** Why it dies, or why it lives. A list of doomed coordinates with no rule beside them cannot
+   * be argued with, which is the whole point of showing both lists. */
+  readonly rule: string;
+}
+
+/** How one run read one pin source — the provenance under every keep the plan claims. */
+export interface GcPinSourceDto {
+  readonly source: string;
+  readonly url: string;
+  readonly answered: boolean;
+  readonly outcome: string;
+  readonly readAt: string;
+  readonly tookMillis: number;
+  readonly pinCount: number;
+  readonly keeps: readonly string[];
+}
+
+/** What this deployment has configured for a repository type, and what it means in a sentence. */
+export interface GcTypeConfigurationDto {
+  readonly type: RepositoryTypeSlug;
+  /** `cache`, `own` or `excluded`. */
+  readonly strategy: string | null;
+  readonly window: string | null;
+  readonly rule: string | null;
+}
+
+/** Blobs a plan would unlink, and the ones it would hold back because their files are young. */
+export interface GcSweepPlanDto {
+  readonly blobCount: number;
+  readonly reclaimableBytes: number;
+  readonly withheldByGraceWindow: number;
+  readonly withheldBytes: number;
+  readonly blobIds: readonly string[];
+}
+
+/** What an executed sweep did to the blobs, including every candidate it refused. */
+export interface GcSweepOutcomeDto {
+  readonly blobsUnlinked: number;
+  readonly bytesReclaimed: number;
+  readonly withheldByGraceWindow: number;
+  readonly withheldBytes: number;
+  /** Candidates something still named at unlink time. Refused, which is the mechanism working. */
+  readonly stillReferenced: number;
+  readonly alreadyGone: number;
+  readonly unlinkedBlobIds: readonly string[];
+}
+
+/** Blobs no identity row names — reported on every plan and receipt, and never swept. */
+export interface GcUntouchablePoolDto {
+  readonly reason: string;
+  readonly blobCount: number;
+  readonly bytes: number;
+  readonly blobIds: readonly string[];
+}
+
+/**
+ * One repository's expected cleanup, in the figures a table can draw.
+ *
+ * `error` and `note` are the two ways zeros arrive with a reason: a type that refused to plan
+ * (usually because the live pins could not be read) and a type nobody collects. A row drawn as `0`
+ * with neither of them shown would claim the repository is already clean, which is a third fact.
+ *
+ * `blobsSweepable` / `reclaimableBytes` are the **structural** figures — see the note above.
+ */
+export interface GcRepositoryPlanSummaryDto {
+  readonly repository: string;
+  readonly type: RepositoryTypeSlug;
+  readonly strategy: string | null;
+  readonly note: string | null;
+  readonly error: string | null;
+  readonly identitiesCondemned: number;
+  readonly identitiesKept: number;
+  readonly blobsSweepable: number;
+  readonly reclaimableBytes: number;
+  readonly withheldByGraceWindow: number;
+  readonly withheldBytes: number;
+}
+
+/** Every repository's expected cleanup, from one run of one plan. */
+export interface GcRepositoriesPlanResponse {
+  readonly generatedAt: string;
+  readonly executable: boolean;
+  readonly pinFailures: readonly string[];
+  readonly graceWindow: string;
+  readonly repositories: readonly GcRepositoryPlanSummaryDto[];
+}
+
+/**
+ * One repository's cleanup in full — the report a run is authorised from.
+ *
+ * `dead` and `kept` are both here on purpose: the half that would be deleted is only reviewable
+ * beside the half that would not.
+ */
+export interface GcRepositoryPlanReportDto {
+  readonly repository: string;
+  readonly type: RepositoryTypeSlug;
+  readonly generatedAt: string;
+  readonly dryRun: boolean;
+  readonly graceWindow: string;
+  readonly executable: boolean;
+  readonly pinFailures: readonly string[];
+  readonly pins: readonly GcPinSourceDto[];
+  readonly configuration: GcTypeConfigurationDto;
+  readonly strategy: string | null;
+  readonly note: string | null;
+  readonly error: string | null;
+  readonly dead: readonly GcIdentityDto[];
+  readonly kept: readonly GcIdentityDto[];
+  /** What a run now would unlink, plus what the grace window holds back. */
+  readonly sweep: GcSweepPlanDto;
+  /** What the rule condemns regardless of how young the files are. */
+  readonly structural: GcSweepPlanDto;
+  readonly untouchable: GcUntouchablePoolDto;
+}
+
+/**
+ * What one executed cleanup of one repository did.
+ *
+ * `aborted` is not an error: it is the receipt of a run that stopped before the census because a
+ * pin source could not answer, and it means nothing at all was deleted.
+ */
+export interface GcRepositorySweepReportDto {
+  readonly repository: string;
+  readonly type: RepositoryTypeSlug;
+  readonly executedAt: string;
+  readonly dryRun: boolean;
+  readonly graceWindow: string;
+  readonly aborted: string | null;
+  readonly pins: readonly GcPinSourceDto[];
+  readonly strategy: string | null;
+  readonly note: string | null;
+  readonly error: string | null;
+  readonly deleted: readonly GcIdentityDto[];
+  readonly withheldByGraceWindow: readonly GcIdentityDto[];
+  readonly sweep: GcSweepOutcomeDto;
+  readonly untouchable: GcUntouchablePoolDto;
 }
