@@ -35,6 +35,16 @@ export type CleanupCell =
     };
 
 /**
+ * What a plan's note leads with when nobody collects that repository's type.
+ *
+ * The listing carries no policy field to read: `strategy` is the class that *would* collect the
+ * type, and an excluded type still names one — the two CI types name a stub each. The note is
+ * where the service states the exclusion, and it states it for exactly this reason, so this page
+ * reads it rather than inferring "nobody collects this" from a row of zeros.
+ */
+const EXCLUDED_NOTE = 'excluded by configuration';
+
+/**
  * The front door: every repository in the store, what type it is, how much it holds, what it costs
  * — and what cleaning it up would free — beside a panel that says plainly which of the three
  * possible byte counts each figure is.
@@ -112,10 +122,17 @@ export class RepositoriesPage {
     return state.kind === 'ready' ? state.value : [];
   });
 
-  /** `5 repositories` — the store's shape in one clause, above the table. */
+  /**
+   * `5 repositories.` — the store's shape in one clause, above the table.
+   *
+   * Punctuated here rather than in the template: the count sits between two written sentences, and
+   * without the stop it reads as the opening of the one after it.
+   */
   protected readonly lede = computed(() => {
     const state = this.repositories();
-    return state.kind === 'ready' ? plural(state.value.length, 'repository', 'repositories') : '';
+    return state.kind === 'ready'
+      ? `${plural(state.value.length, 'repository', 'repositories')}.`
+      : '';
   });
 
   /** The cleanup plan, once it is here. */
@@ -199,6 +216,11 @@ export class RepositoriesPage {
    * The order of the tests is the order of the facts: a refusal outranks everything below it
    * because its figures were never computed; a type nobody collects outranks "nothing" because a
    * rule that never ran found nothing in a different sense than a rule that ran.
+   *
+   * "Nobody collects this" has two spellings on the wire and both are read here: no strategy claims
+   * the type at all, and a type whose strategy is configured out. The second is the live one — the
+   * two CI types name a stub strategy each — so reading only the first drew them as "nothing", the
+   * one word that claims a rule ran.
    */
   protected cleanupCell(repository: ArtifactRepositoryDto): CleanupCell {
     const summary = this.summaryFor(repository.name);
@@ -208,7 +230,7 @@ export class RepositoriesPage {
     if (summary.error) {
       return { kind: 'refused', title: summary.error };
     }
-    if (!summary.strategy) {
+    if (!summary.strategy || summary.note?.startsWith(EXCLUDED_NOTE)) {
       return {
         kind: 'not-collected',
         title: summary.note ?? 'No collector is configured for this repository type.',

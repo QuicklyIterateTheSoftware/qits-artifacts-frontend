@@ -142,7 +142,9 @@ describe('RepositoriesPage', () => {
     // and the cleanup figures are the read that had to be designed for it — a plan per row would
     // have been five censuses and ten cross-service calls to draw one column.
     http.verify();
-    expect(text()).toContain('5 repositories');
+    // Punctuated, because the count sits between two written sentences and an unstopped one reads
+    // as the opening of the next.
+    expect(text()).toContain('what it costs. 5 repositories. Two things here can change it');
   });
 
   it('draws every repository with the noun its own type counts', async () => {
@@ -240,6 +242,60 @@ describe('RepositoriesPage', () => {
     // the service reads its pins once per run and aborts whole when one cannot answer.
     expect(text()).toContain('No cleanup can run right now');
     expect(text()).toContain('qits-cd deployment pins');
+  });
+
+  it('says a type configured out is not collected, not that there is nothing to collect', async () => {
+    // An excluded type still names a strategy — the two CI types name a stub each — so the plan
+    // states the exclusion in its note and nowhere else. Reading only the strategy drew these rows
+    // as "nothing", which is the one word that claims a rule ran over them.
+    await open();
+    flushRepositories([
+      repository({ name: 'ci-videos', type: 'ci-videos', itemCount: 0, sizeBytes: 0 }),
+      repository({ name: 'npm', type: 'npm-packages', itemCount: 2, sizeBytes: 87040 }),
+    ]);
+    flushSummary();
+    flushCleanup(
+      cleanup([
+        cleanupRow({
+          repository: 'ci-videos',
+          type: 'ci-videos',
+          strategy: 'CiVideosGcStrategy',
+          note: 'excluded by configuration: no engine is configured for this type, so nothing of it is ever deleted — a decision, not a gap.',
+        }),
+        cleanupRow({ repository: 'npm', type: 'npm-packages' }),
+      ]),
+    );
+    await settle();
+
+    const cells = Array.from(page().querySelectorAll('td.cleanup')).map((cell) =>
+      (cell.textContent ?? '').trim(),
+    );
+    expect(cells).toEqual(['not collected', 'nothing']);
+
+    const excluded = page().querySelector('td.cleanup [title]');
+    expect(excluded?.getAttribute('title')).toContain('excluded by configuration');
+  });
+
+  it('keeps a note that is not an exclusion out of the not-collected case', async () => {
+    // npm-proxy carries a note too — the H2 caption behind its zero — and it is collected. A cell
+    // that read any note as an exclusion would report the cache as one nobody sweeps.
+    await open();
+    flushRepositories([repository({ name: 'npmjs', type: 'npm-proxy', itemCount: 710 })]);
+    flushSummary();
+    flushCleanup(
+      cleanup([
+        cleanupRow({
+          repository: 'npmjs',
+          type: 'npm-proxy',
+          strategy: 'NpmProxyGcStrategy',
+          note: 'cached packuments are H2 CLOBs, not files',
+        }),
+      ]),
+    );
+    await settle();
+
+    expect(text()).toContain('nothing');
+    expect(text()).not.toContain('not collected');
   });
 
   it('offers review from every row and a run from none of them', async () => {
