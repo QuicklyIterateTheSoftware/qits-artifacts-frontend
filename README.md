@@ -1,8 +1,8 @@
-# QitsSpaArtifacts
+# QitsPlatformSpaArtifacts
 
 The artifact explorer: what this platform stores, what it costs, and — one repository at a time,
-behind a plan — what it could stop storing. Served by qits-artifacts itself at `/artifacts/` through
-Quinoa. Six pages, and almost all of it is read.
+behind a plan — what it could stop storing. Served by qits-platform-artifacts itself at
+`/artifacts/` through Quinoa. Six pages, and almost all of it is read.
 
 - **`/artifacts/`** — every repository, with its type, how many things it holds, its own byte union
   and what cleaning it up would free, beside a store-level summary panel. Three requests, and none
@@ -84,8 +84,9 @@ npm run lint && npm test && npm run build
 ```
 
 The same three, in the same order, are what `.config/qits/ci-post-receive.yml` runs on every push.
-Note what that pipeline installs from: the npm registry behind it **is** qits-artifacts, so a run
-here cannot be green while that service is down. Its deploy is taken alone, with the CI queue empty.
+Note what that pipeline installs from: the npm registry behind it **is** qits-platform-artifacts, so
+a run here cannot be green while that service is down. Its deploy is taken alone, with the CI queue
+empty.
 
 ## Code scaffolding
 
