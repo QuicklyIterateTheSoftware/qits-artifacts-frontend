@@ -54,9 +54,9 @@ does not claim to. When the service cannot read its live pins the run affordance
 at all** rather than disabled, because what is on screen in that state is what the rules condemn
 rather than what a run would take.
 
-The **git host** is out of scope and named as such on the front page. It runs in the same service
-and answers under the same URL segment, and shares nothing else: separate volume, no blob store, no
-rows, no repository entry.
+The **git host** is out of scope and named as such on the front page. It is a service of its own —
+qits-githost, at `/git/` rather than under this segment — with its own storage: no blob store, no
+rows, no repository entry here.
 
 `src/app/api/` holds hand-written interfaces mirroring the service's wire shapes and one injectable
 over `HttpClient` on the fetch backend — one upstream, because there is no second service to join

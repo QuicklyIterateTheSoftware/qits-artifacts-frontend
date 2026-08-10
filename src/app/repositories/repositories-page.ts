@@ -86,11 +86,11 @@ const EXCLUDED_NOTE = 'excluded by configuration';
  * standing rule is that nothing sweeps without the dry-run being read, and a button beside a figure
  * in a table would be the exact shape that rule exists to refuse.
  *
- * **The git host is a footer note, not a row.** It shares this service's process and the
- * `/artifacts/` URL segment and nothing else — separate volume, no blob store, no rows, no
- * `artifact_repository` entry. Listing it as a sixth repository would put a thing with no type, no
- * count and no size into a table about types, counts and sizes; the honest thing is to say it
- * exists, say where it lives, and leave it out of the arithmetic.
+ * **The git host is a footer note, not a row.** It is qits-githost now, a service of its own
+ * answering at `/git/` — its own storage, no blob store, no rows, no `artifact_repository` entry.
+ * Listing it as a repository would put a thing with no type, no count and no size into a table
+ * about types, counts and sizes; the honest thing is to say it exists, say where it lives, and
+ * leave it out of the arithmetic.
  */
 @Component({
   selector: 'app-repositories-page',

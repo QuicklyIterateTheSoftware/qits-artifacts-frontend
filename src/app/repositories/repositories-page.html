@@ -118,10 +118,10 @@
           <tfoot>
             <tr>
               <td colspan="6">
-                The git host is not in this table. It runs in the same service and answers under the
-                same URL segment, and that is all it shares: separate volume, no blob store, no
-                rows, and no entry of its own here. Clone and push work as they always have — this
-                explorer simply does not measure them.
+                The git host is not in this table. It is a service of its own — qits-githost, at
+                <code>/git/</code> rather than under this segment — with its own storage: no blob
+                store, no rows, and no entry of any kind here. Clone and push work as they always
+                have; this explorer simply does not reach them.
               </td>
             </tr>
           </tfoot>
