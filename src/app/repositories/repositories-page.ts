@@ -12,7 +12,7 @@ import { Async } from '../ui/async';
 import { Empty } from '../ui/empty';
 import { NONE, formatBytes, itemNoun, plural } from '../ui/format';
 import { LOADING, failed, ready, type Loadable } from '../ui/loadable';
-import { isMirror, typeTone } from '../ui/repository-type';
+import { typeTone } from '../ui/repository-type';
 import { StoreSummary } from './store-summary';
 
 /** What the Cleanup column draws for one row, decided once here rather than in the template. */
@@ -86,12 +86,6 @@ const EXCLUDED_NOTE = 'excluded by configuration';
  * standing rule is that nothing sweeps without the dry-run being read, and a button beside a figure
  * in a table would be the exact shape that rule exists to refuse.
  *
- * **The mirror namespaces are rows, and they are also a footnote.** They are ordinary repositories
- * with a type, a count and a size, so they belong in the table on the same terms as everything
- * else. What the table cannot say is which upstream each one fronts — that is keyed by domain, not
- * by repository name — so a footnote points at the page that can, and it is drawn only when there
- * is at least one such row to point at.
- *
  * **The git host is a footer note, not a row.** It shares this service's process and the
  * `/artifacts/` URL segment and nothing else — separate volume, no blob store, no rows, no
  * `artifact_repository` entry. Listing it as a sixth repository would put a thing with no type, no
@@ -154,19 +148,6 @@ export class RepositoriesPage {
       return null;
     }
     return plan.pinFailures.join('; ');
-  });
-
-  /** How many of the rows are mirror namespaces. Zero hides the footnote about them entirely. */
-  protected readonly mirrorCount = computed(
-    () => this.rows().filter((repository) => isMirror(repository.type)).length,
-  );
-
-  /** `Three of these are mirror namespaces.` — the footnote's opening clause. */
-  protected readonly mirrorNote = computed(() => {
-    const count = this.mirrorCount();
-    return count === 1
-      ? 'One of these is a mirror namespace.'
-      : `${count} of these are mirror namespaces.`;
   });
 
   constructor() {

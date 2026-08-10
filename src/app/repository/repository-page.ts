@@ -22,7 +22,7 @@ import { Async } from '../ui/async';
 import { Empty } from '../ui/empty';
 import { NONE, formatBytes, formatInstant, itemNoun, plural, shortDigest } from '../ui/format';
 import { IDLE, LOADING, failed, ready, type Loadable } from '../ui/loadable';
-import { isMirror, isNpm, isOci, typeSummary, typeTone } from '../ui/repository-type';
+import { isNpm, isOci, typeSummary, typeTone } from '../ui/repository-type';
 
 /**
  * One repository, drawn as whatever its type actually holds.
@@ -43,22 +43,11 @@ import { isMirror, isNpm, isOci, typeSummary, typeTone } from '../ui/repository-
  * deliberate trade: a cache would need an invalidation story for a store this UI cannot write to
  * anyway, and the read is one flat list of five rows. Reloading a page is how you refresh it.
  *
- * **A mirror namespace is drawn as the image listing it is.** Its cached content is ordinary
- * `oci_manifest` and `oci_tag` rows, so `…/images` answers for `quay` exactly as it does for
- * `qits` and the same table serves both. What this page deliberately does *not* do is read the
- * upstream map to name the registry behind the namespace: that is keyed by domain, would cost a
- * second flat read on a page whose whole claim is `1 + 1`, and is one link away. The link is
- * offered instead.
- *
  * **The ci types are drawn, not hidden.** A repository that exists and holds nothing is a fact
  * about this platform — the golden-diff loop these two were built for has never produced a single
  * record — and a UI that skipped them would be quietly claiming the store has three repositories.
  * The empty state says which of the two it is.
  *
- * **Cached and published npm are separate pages because they are separate repositories**, and this
- * page never mixes them. Proxied npm outweighs published npm 1,971:1 by bytes and 176:1 by version
- * count on this deployment; a single listing with a filter would bury the platform's own two
- * packages at 0.6% of the rows, and the store already models the distinction structurally.
  */
 @Component({
   selector: 'app-repository-page',
@@ -124,9 +113,6 @@ export class RepositoryPage {
     const type = this.repository()?.type;
     return type === 'ci-screenshots' || type === 'ci-videos';
   });
-
-  /** A mirror namespace, which is an image listing plus a link to the upstream it fronts. */
-  protected readonly isMirror = computed(() => isMirror(this.repository()?.type ?? ''));
 
   /** True for the two types that have no listing endpoint at all. */
   protected readonly hasNoListing = computed(

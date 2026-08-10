@@ -2,10 +2,9 @@
   <div>
     <h1>Artifacts</h1>
     <p class="lede">
-      What this platform stores, and what it costs. {{ lede() }} Two things here can change it:
-      <a routerLink="/mirrors">which registries are mirrored</a>, and a repository's
-      <strong>cleanup</strong> — the one action in this explorer that deletes bytes, taken one
-      repository at a time and never without its plan on screen first.
+      What this platform stores, and what it costs. {{ lede() }} One thing here can change it: a
+      repository's <strong>cleanup</strong> — the one action in this explorer that deletes bytes,
+      taken one repository at a time and never without its plan on screen first.
     </p>
   </div>
   <qits-button variant="secondary" size="sm" (pressed)="reload()">Refresh</qits-button>
@@ -117,15 +116,6 @@
             }
           </tbody>
           <tfoot>
-            @if (mirrorCount() > 0) {
-              <tr>
-                <td colspan="6">
-                  {{ mirrorNote() }} Each fronts one upstream registry and holds only what a build
-                  has pulled through it. They are the one part of this store an operator creates and
-                  removes, on the <a routerLink="/mirrors">mirror upstreams</a> page.
-                </td>
-              </tr>
-            }
             <tr>
               <td colspan="6">
                 The git host is not in this table. It runs in the same service and answers under the

@@ -56,7 +56,7 @@ describe('ArtifactsApi', () => {
     const repositories = api.repositories();
     http.expectOne('/artifacts/api/repositories').flush({
       repositories: [
-        { name: 'npmjs', type: 'npm-proxy', createdAt: null, itemCount: 710, sizeBytes: null },
+        { name: 'npm', type: 'npm-packages', createdAt: null, itemCount: 2, sizeBytes: null },
       ],
     });
     await expect(repositories).resolves.toMatchObject([{ sizeBytes: null }]);
@@ -67,16 +67,12 @@ describe('ArtifactsApi', () => {
     http.expectOne('/artifacts/api/store/summary').flush({
       ociPerImageSumBytes: 4681572352,
       ociUnionBytes: 4337916518,
-      ociMirrorBytes: 4865981,
       orphanBytes: 130023424,
       npmPublishedBytes: 87040,
-      npmProxyTarballBytes: 171952091,
-      npmProxyPackumentBytes: 650825871,
       diskTotalBytes: 4637355442,
     });
     await expect(summary).resolves.toMatchObject({
       ociUnionBytes: 4337916518,
-      ociMirrorBytes: 4865981,
       orphanBytes: 130023424,
     });
   });
@@ -187,14 +183,6 @@ describe('ArtifactsApi', () => {
     ]);
   });
 
-  it('reads the proxy’s packages from the same endpoint the hosted registry uses', async () => {
-    const packages = api.packages('npmjs');
-    http
-      .expectOne('/artifacts/api/repositories/npmjs/packages')
-      .flush({ packages: [{ name: 'zone.js', versionCount: 3, latest: null }] });
-    await expect(packages).resolves.toMatchObject([{ name: 'zone.js', latest: null }]);
-  });
-
   it('encodes the scope separator in a package name, slash and all', async () => {
     const versions = api.versions('npm', '@qits/ui-components');
     const request = http.expectOne(
@@ -214,70 +202,29 @@ describe('ArtifactsApi', () => {
     await expect(versions).resolves.toMatchObject([{ version: '0.0.4', distTags: ['latest'] }]);
   });
 
-  it('keeps a proxied version’s unmeasured size and date as nulls', async () => {
-    const versions = api.versions('npmjs', 'zone.js');
-    http.expectOne('/artifacts/api/repositories/npmjs/packages/zone.js/versions').flush({
-      versions: [{ version: '0.15.0', tarballSizeBytes: null, publishedAt: null, distTags: [] }],
-    });
+  it('keeps an unmeasured version’s size and date as nulls', async () => {
+    const versions = api.versions('npm', '@qits/ui-components');
+    http
+      .expectOne('/artifacts/api/repositories/npm/packages/%40qits%2Fui-components/versions')
+      .flush({
+        versions: [{ version: '0.0.5', tarballSizeBytes: null, publishedAt: null, distTags: [] }],
+      });
     await expect(versions).resolves.toMatchObject([{ tarballSizeBytes: null, publishedAt: null }]);
   });
 
-  it('unwraps the registered upstreams', async () => {
-    const upstreams = api.mirrorUpstreams();
-    http.expectOne('/artifacts/api/mirror-upstreams').flush({
-      upstreams: [
-        { domain: 'quay.io', slug: 'quay', createdAt: '2026-08-01T13:50:45Z', cachedImages: 1 },
-      ],
-    });
-    await expect(upstreams).resolves.toMatchObject([{ domain: 'quay.io', slug: 'quay' }]);
-  });
-
-  // PUT because the domain is the key. The body carries only the slug, and the answer carries the
-  // row as stored — which is what lets a caller update its list without a second read.
-  it('registers an upstream by PUT on its domain, and answers the stored row', async () => {
-    const upstream = api.registerMirrorUpstream('ghcr.io', 'ghcr');
-    const request = http.expectOne('/artifacts/api/mirror-upstreams/ghcr.io');
-    expect(request.request.method).toBe('PUT');
-    expect(request.request.body).toEqual({ slug: 'ghcr' });
-    request.flush({
-      upstream: {
-        domain: 'ghcr.io',
-        slug: 'ghcr',
-        createdAt: '2026-08-01T14:00:00Z',
-        cachedImages: 0,
-      },
-    });
-    await expect(upstream).resolves.toMatchObject({ slug: 'ghcr', cachedImages: 0 });
-  });
-
-  it('reports a refused slug move as the 400 it is', async () => {
-    const upstream = api.registerMirrorUpstream('quay.io', 'quarkus');
-    http
-      .expectOne('/artifacts/api/mirror-upstreams/quay.io')
-      .flush({ message: 'a namespace is immutable' }, { status: 400, statusText: 'Bad Request' });
-    await expect(upstream).rejects.toMatchObject({ status: 400 });
-  });
-
-  it('removes an upstream by DELETE on its domain, and gets no body back', async () => {
-    const removed = api.removeMirrorUpstream('quay.io');
-    const request = http.expectOne('/artifacts/api/mirror-upstreams/quay.io');
-    expect(request.request.method).toBe('DELETE');
-    request.flush(null, { status: 204, statusText: 'No Content' });
-    await expect(removed).resolves.toBeUndefined();
-  });
-
-  // The write surface is guarded by a static token this application does not hold and must not
-  // invent. The call carries no credential and the 401 reaches the caller intact.
-  it('sends no token on a write, and surfaces the 401 that comes back', async () => {
-    const upstream = api.registerMirrorUpstream('ghcr.io', 'ghcr');
-    const request = http.expectOne('/artifacts/api/mirror-upstreams/ghcr.io');
+  // The one write this application makes is guarded by a static token it does not hold and must
+  // not invent. The call carries no credential and the 401 reaches the caller intact.
+  it('sends no token on the sweep, and surfaces the 401 that comes back', async () => {
+    const swept = api.gcRepositorySweep('qits');
+    const request = http.expectOne('/artifacts/api/gc/repositories/qits/sweep');
+    expect(request.request.method).toBe('POST');
     expect(request.request.headers.has('X-Artifacts-Token')).toBe(false);
     expect(request.request.headers.has('Authorization')).toBe(false);
     request.flush(
       { message: 'Missing or invalid X-Artifacts-Token' },
       { status: 401, statusText: 'Unauthorized' },
     );
-    await expect(upstream).rejects.toMatchObject({ status: 401 });
+    await expect(swept).rejects.toMatchObject({ status: 401 });
   });
 
   it('rejects with the HttpErrorResponse, so callers can read the status', async () => {

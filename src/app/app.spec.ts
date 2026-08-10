@@ -71,8 +71,6 @@ describe('App', () => {
       ociUnionBytes: 0,
       orphanBytes: 0,
       npmPublishedBytes: 0,
-      npmProxyTarballBytes: 0,
-      npmProxyPackumentBytes: 0,
       diskTotalBytes: 0,
     });
   });

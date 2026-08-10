@@ -79,7 +79,7 @@ describe('the small conversions', () => {
     expect(plural(10, 'image')).toBe('10 images');
     expect(plural(1, 'repository', 'repositories')).toBe('1 repository');
     expect(itemNoun('oci-images')).toBe('image');
-    expect(itemNoun('npm-proxy')).toBe('package');
+    expect(itemNoun('npm-packages')).toBe('package');
     expect(itemNoun('ci-screenshots')).toBe('record');
   });
 

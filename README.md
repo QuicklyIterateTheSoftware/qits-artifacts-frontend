@@ -2,7 +2,7 @@
 
 The artifact explorer: what this platform stores, what it costs, and — one repository at a time,
 behind a plan — what it could stop storing. Served by qits-platform-artifacts itself at
-`/artifacts/` through Quinoa. Six pages, and almost all of it is read.
+`/artifacts/` through Quinoa. Five pages, and almost all of it is read.
 
 - **`/artifacts/`** — every repository, with its type, how many things it holds, its own byte union
   and what cleaning it up would free, beside a store-level summary panel. Three requests, and none
@@ -14,7 +14,9 @@ behind a plan — what it could stop storing. Served by qits-platform-artifacts 
 - **`/artifacts/repositories/<repo>/images/<image>`** — an image's tags and the manifest each points
   at, led by the per-image union.
 - **`/artifacts/repositories/<repo>/packages/<package>`** — a package's versions.
-- **`/artifacts/mirrors`** — which public registries this one mirrors, under which namespace.
+
+The pull-through caches are **not** here. They live in qits-platform-mirror, with their own admin
+UI; this explorer covers what the platform hosts.
 
 The tree is **repository-first**, and that is a decision rather than a default. Nothing in this
 store joins to a project: not one column, in any table. An image name equals a git-host repository
@@ -30,8 +32,11 @@ deduplicated across every repository, so the same content measures 10.63 GiB add
 GiB added up per image and 4.04 GiB counted once. The headline size on an image is the **per-image
 union**; the per-tag column is labelled *not additive* and is never totalled; and the summary panel
 on the front page names all three figures, plus the ~124 MiB of orphaned blobs no row-based view can
-show, and the cached npm packument documents that outweigh the tarballs they index by roughly four
-to one. An unlabelled byte count on a deduped store is a lie with a number in it.
+show. An unlabelled byte count on a deduped store is a lie with a number in it.
+
+The service still carries the cache figures on the wire and answers **0** for every one of them.
+The panel draws none of them, on the same principle: a labelled zero reads as a fact about an empty
+cache when it is a fact about a cache that is somewhere else.
 
 **The cleanup figures are a fourth kind of byte count, and they do not add up either.** A
 repository's cleanup figure is what cleaning *that repository alone* would free: the store-wide
@@ -48,10 +53,6 @@ report was served and displayed before the invocation existed — it cannot prov
 does not claim to. When the service cannot read its live pins the run affordance is **not rendered
 at all** rather than disabled, because what is on screen in that state is what the rules condemn
 rather than what a run would take.
-
-**Cached and published npm are separate pages because they are separate repositories.** Proxied npm
-outweighs published npm 1,971:1 by bytes on this deployment; one mixed listing with a filter would
-bury the platform's own two packages at 0.6% of the rows.
 
 The **git host** is out of scope and named as such on the front page. It runs in the same service
 and answers under the same URL segment, and shares nothing else: separate volume, no blob store, no

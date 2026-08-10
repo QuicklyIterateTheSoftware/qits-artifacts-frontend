@@ -58,15 +58,6 @@
     </table>
   </div>
 
-  @if (cached()) {
-    <p class="note">
-      These versions are cached from the upstream registry, not published here. Dist-tags are not
-      shown because the cache stores versions rather than the upstream's tag pointers, so it has
-      none to show. A version whose tarball has never been pulled is listed with its size and date
-      unmeasured.
-    </p>
-  }
-
   @if (hosted()) {
     <p class="note">
       Versions here are immutable — republishing one is refused — so a row on this table will not

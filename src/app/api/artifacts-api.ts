@@ -12,9 +12,6 @@ import type {
   GcRepositorySweepReportDto,
   ImagesResponse,
   ManifestsResponse,
-  MirrorUpstreamDto,
-  MirrorUpstreamResponse,
-  MirrorUpstreamsResponse,
   NpmPackageDto,
   NpmVersionDto,
   OciImageDto,
@@ -47,13 +44,12 @@ import type {
  * `@qits/ui-components` — and the slash in it is not a path separator; `encodeURIComponent` turns
  * it into `@qits%2Fui-components`, which is the form the service's route expects.
  *
- * **The writes carry no credential, and one of them now deletes.** The two mirror-upstream writes
- * changed a row and no bytes; {@link ArtifactsApi.gcRepositorySweep} unlinks files. Neither sends a
- * token, and that is not an omission to fill in later: no page in any qits SPA has ever sent a
- * machine token, because the browser is not one of the callers those tokens exist for.
+ * **There is one write, and it deletes.** {@link ArtifactsApi.gcRepositorySweep} unlinks files. It
+ * sends no token, and that is not an omission to fill in later: no page in any qits SPA has ever
+ * sent a machine token, because the browser is not one of the callers those tokens exist for.
  * qits-artifacts guards every write under `/artifacts/api` with a static `X-Artifacts-Token` that
- * only a shell or a provisioning script holds, so when a deployment sets that token these writes
- * answer 401 and the page says exactly that. Storing a token in this app would be inventing a
+ * only a shell or a provisioning script holds, so when a deployment sets that token this write
+ * answers 401 and the page says exactly that. Storing a token in this app would be inventing a
  * credential store to defeat a guard rather than to satisfy it.
  */
 @Injectable({ providedIn: 'root' })
@@ -62,7 +58,7 @@ export class ArtifactsApi {
   private readonly base = inject(QITS_API_BASE);
 
   /**
-   * The five repositories, each with its type, how many things it holds, and its own byte union.
+   * Every repository, with its type, how many things it holds, and its own byte union.
    *
    * This is the one read every page makes, because a repository's *type* is what decides which
    * listing endpoint applies to it — there is no way to ask a repository what it is on its own.
@@ -74,7 +70,7 @@ export class ArtifactsApi {
     return response.repositories;
   }
 
-  /** The store's seven figures. Read once, on the overview, and nowhere else. */
+  /** The store's five figures. Read once, on the overview, and nowhere else. */
   storeSummary(): Promise<StoreSummaryDto> {
     return firstValueFrom(
       this.http.get<StoreSummaryDto>(`${this.base}/artifacts/api/store/summary`),
@@ -159,50 +155,6 @@ export class ArtifactsApi {
       ),
     );
     return response.versions;
-  }
-
-  /** Every registered upstream registry, ordered by namespace. A read — open, like the rest. */
-  async mirrorUpstreams(): Promise<readonly MirrorUpstreamDto[]> {
-    const response = await firstValueFrom(
-      this.http.get<MirrorUpstreamsResponse>(`${this.base}/artifacts/api/mirror-upstreams`),
-    );
-    return response.upstreams;
-  }
-
-  /**
-   * Registers an upstream under a namespace, and answers the row as stored.
-   *
-   * `PUT` because the domain is the key: re-registering the same pair is a no-op that answers the
-   * existing row, so a provisioning script can be re-run. Registering a *different* namespace for
-   * a domain already mirrored is a 400 — content is cached under the old namespace and moving the
-   * name would strand it — as is a namespace already taken by another upstream or by a repository
-   * of some other type.
-   *
-   * The answer is used rather than discarded: the caller splices it into the list it already has,
-   * which is what keeps a write from costing a re-read.
-   */
-  async registerMirrorUpstream(domain: string, slug: string): Promise<MirrorUpstreamDto> {
-    const response = await firstValueFrom(
-      this.http.put<MirrorUpstreamResponse>(
-        `${this.base}/artifacts/api/mirror-upstreams/${encodeURIComponent(domain)}`,
-        { slug },
-      ),
-    );
-    return response.upstream;
-  }
-
-  /**
-   * Stops mirroring an upstream. 204, and **nothing cached is removed** — the namespace's
-   * repository row, manifests, tags and blobs stay exactly where they are and keep serving. What
-   * ends is the ability to fetch anything new into that namespace, because nothing names the
-   * registry to fetch it from any more.
-   */
-  async removeMirrorUpstream(domain: string): Promise<void> {
-    await firstValueFrom(
-      this.http.delete<void>(
-        `${this.base}/artifacts/api/mirror-upstreams/${encodeURIComponent(domain)}`,
-      ),
-    );
   }
 
   /**

@@ -37,11 +37,8 @@ describe('RepositoriesPage', () => {
   const summary: StoreSummaryDto = {
     ociPerImageSumBytes: 4681572352,
     ociUnionBytes: 4337916518,
-    ociMirrorBytes: 4865981,
     orphanBytes: 130023424,
     npmPublishedBytes: 87040,
-    npmProxyTarballBytes: 171952091,
-    npmProxyPackumentBytes: 650825871,
     diskTotalBytes: 4637355442,
   };
 
@@ -121,7 +118,7 @@ describe('RepositoriesPage', () => {
     await open();
     flushRepositories([
       repository(),
-      repository({ name: 'npmjs', type: 'npm-proxy', itemCount: 710, sizeBytes: 171952091 }),
+      repository({ name: 'maven', type: 'maven-packages', itemCount: 8, sizeBytes: 4096 }),
       repository({ name: 'npm', type: 'npm-packages', itemCount: 2, sizeBytes: 87040 }),
       repository({ name: 'ci-screenshots', type: 'ci-screenshots', itemCount: 0, sizeBytes: 0 }),
       repository({ name: 'ci-videos', type: 'ci-videos', itemCount: 0, sizeBytes: 0 }),
@@ -130,7 +127,7 @@ describe('RepositoriesPage', () => {
     flushCleanup(
       cleanup([
         cleanupRow(),
-        cleanupRow({ repository: 'npmjs', type: 'npm-proxy' }),
+        cleanupRow({ repository: 'maven', type: 'maven-packages' }),
         cleanupRow({ repository: 'npm', type: 'npm-packages' }),
         cleanupRow({ repository: 'ci-screenshots', type: 'ci-screenshots', strategy: null }),
         cleanupRow({ repository: 'ci-videos', type: 'ci-videos', strategy: null }),
@@ -144,14 +141,14 @@ describe('RepositoriesPage', () => {
     http.verify();
     // Punctuated, because the count sits between two written sentences and an unstopped one reads
     // as the opening of the next.
-    expect(text()).toContain('what it costs. 5 repositories. Two things here can change it');
+    expect(text()).toContain('what it costs. 5 repositories. One thing here can change it');
   });
 
   it('draws every repository with the noun its own type counts', async () => {
     await open();
     flushRepositories([
       repository(),
-      repository({ name: 'npmjs', type: 'npm-proxy', itemCount: 710, sizeBytes: 171952091 }),
+      repository({ name: 'npm', type: 'npm-packages', itemCount: 710, sizeBytes: 171952091 }),
       repository({ name: 'maven', type: 'maven-packages', itemCount: 8, sizeBytes: 4096 }),
       repository({ name: 'daemons', type: 'daemon-binaries', itemCount: 3, sizeBytes: 4096 }),
       repository({ name: 'ci-videos', type: 'ci-videos', itemCount: 0, sizeBytes: 0 }),
@@ -277,18 +274,18 @@ describe('RepositoriesPage', () => {
   });
 
   it('keeps a note that is not an exclusion out of the not-collected case', async () => {
-    // npm-proxy carries a note too — the H2 caption behind its zero — and it is collected. A cell
-    // that read any note as an exclusion would report the cache as one nobody sweeps.
+    // A collected type can carry a note too — the caption behind its zero. A cell that read any
+    // note as an exclusion would report a swept repository as one nobody sweeps.
     await open();
-    flushRepositories([repository({ name: 'npmjs', type: 'npm-proxy', itemCount: 710 })]);
+    flushRepositories([repository({ name: 'maven', type: 'maven-packages', itemCount: 8 })]);
     flushSummary();
     flushCleanup(
       cleanup([
         cleanupRow({
-          repository: 'npmjs',
-          type: 'npm-proxy',
-          strategy: 'NpmProxyGcStrategy',
-          note: 'cached packuments are H2 CLOBs, not files',
+          repository: 'maven',
+          type: 'maven-packages',
+          strategy: 'MavenPackagesGcStrategy',
+          note: 'metadata documents are database rows, not files',
         }),
       ]),
     );
@@ -329,7 +326,7 @@ describe('RepositoriesPage', () => {
     expect(text()).not.toContain('Nothing here deletes, expires or reclaims a byte');
   });
 
-  it('names all three OCI figures, and the orphans no other view can show', async () => {
+  it('names both OCI figures, and the orphans no other view can show', async () => {
     await open();
     flushRepositories([repository()]);
     flushSummary();
@@ -338,66 +335,32 @@ describe('RepositoriesPage', () => {
 
     expect(text()).toContain('Per-image unions, added up');
     expect(text()).toContain('4.36 GiB');
-    expect(text()).toContain('Hosted union, counted once');
+    expect(text()).toContain('Union, counted once');
     expect(text()).toContain('4.04 GiB');
     expect(text()).toContain('Orphaned blobs');
     expect(text()).toContain('124 MiB');
   });
 
-  // The hosted union excludes the mirror namespaces on the wire, so folding the two into one
-  // figure — or leaving the mirror bytes out — would misreport the store by whatever the cache
-  // holds. Both are named, and the hosted one says it is hosted.
-  it('reports the mirrored bytes apart from the hosted union', async () => {
+  // The pull-through caches moved to qits-platform-mirror and this service answers 0 for every one
+  // of their figures. A labelled 0 would read as a fact about an empty cache rather than about a
+  // cache that is somewhere else, so the panel draws no cache figure at all.
+  it('draws no cache figure, even though the wire still carries the zeros', async () => {
     await open();
     flushRepositories([repository()]);
-    flushSummary();
+    http.expectOne('/artifacts/api/store/summary').flush({
+      ...summary,
+      ociMirrorBytes: 0,
+      npmProxyTarballBytes: 0,
+      npmProxyPackumentBytes: 0,
+      mavenProxyBytes: 0,
+    });
     flushCleanup();
     await settle();
 
-    expect(text()).toContain('Mirrored from upstream, counted once');
-    expect(text()).toContain('4.64 MiB');
-    expect(text()).toContain('Hosted union, counted once');
-    expect(text()).not.toContain('True union, counted once');
-  });
-
-  it('points at the upstream map only when the store actually has mirror namespaces', async () => {
-    await open();
-    flushRepositories([repository()]);
-    flushSummary();
-    flushCleanup();
-    await settle();
-
-    expect(text()).not.toContain('mirror namespaces.');
-
-    const retry = Array.from(page().querySelectorAll('button')).find(
-      (button) => (button.textContent ?? '').trim() === 'Refresh',
-    );
-    retry?.click();
-    await settle();
-    flushRepositories([
-      repository(),
-      repository({ name: 'quay', type: 'oci-mirror', itemCount: 1, sizeBytes: 1132219 }),
-      repository({ name: 'hub', type: 'oci-mirror', itemCount: 1, sizeBytes: 3733762 }),
-    ]);
-    flushSummary();
-    flushCleanup();
-    await settle();
-
-    expect(text()).toContain('2 of these are mirror namespaces.');
-    expect(text()).toContain('1 image'); // the mirror rows count images, like the hosted one
-  });
-
-  it('reports the packument cost beside the tarballs it dwarfs', async () => {
-    await open();
-    flushRepositories([repository()]);
-    flushSummary();
-    flushCleanup();
-    await settle();
-
-    expect(text()).toContain('Cached tarballs, from npmjs');
-    expect(text()).toContain('164 MiB');
-    expect(text()).toContain('Cached packument documents');
-    expect(text()).toContain('621 MiB');
+    expect(text()).not.toContain('Mirrored from upstream');
+    expect(text()).not.toContain('Cached tarballs');
+    expect(text()).not.toContain('Cached packument documents');
+    expect(text()).toContain('Published tarballs');
   });
 
   it('explains how each figure was counted only when asked — a free toggle, not a request', async () => {
@@ -449,7 +412,7 @@ describe('RepositoriesPage', () => {
     flushSummary();
     await settle();
 
-    expect(text()).toContain('Hosted union, counted once');
+    expect(text()).toContain('Union, counted once');
   });
 
   it('keeps the table standing when only the cleanup read fails, and draws no zeros for it', async () => {

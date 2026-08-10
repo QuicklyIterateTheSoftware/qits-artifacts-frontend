@@ -225,8 +225,8 @@ export class CleanupPage {
   /**
    * A failed run, in a sentence that names the caller who can succeed.
    *
-   * The 401 is the one worth its own wording, exactly as on the mirrors page: the guard is the
-   * service's and no page in this application holds a credential of any kind. Everything else is
+   * The 401 is the one worth its own wording: the guard is the service's and no page in this
+   * application holds a credential of any kind. Everything else is
    * the service explaining itself in its own words, which beats anything this page could
    * paraphrase.
    */

@@ -11,9 +11,8 @@ import type { ArtifactRepositoryDto, NpmVersionDto } from '../api/dto';
  * The versions of one package.
  *
  * Two behaviours are worth the file on their own: a dist-tag column that appears only where
- * dist-tags mean something, and a null size that is drawn as *unmeasured* rather than as zero — the
- * proxy can index a version whose tarball it never pulled, and "0 B" would be a claim about disk
- * that nobody made.
+ * dist-tags mean something, and a null size that is drawn as *unmeasured* rather than as zero —
+ * "0 B" would be a claim about disk that nobody made.
  */
 describe('PackagePage', () => {
   let http: HttpTestingController;
@@ -28,10 +27,7 @@ describe('PackagePage', () => {
     ...over,
   });
 
-  const store: readonly ArtifactRepositoryDto[] = [
-    repository(),
-    repository({ name: 'npmjs', type: 'npm-proxy', itemCount: 710, sizeBytes: 171952091 }),
-  ];
+  const store: readonly ArtifactRepositoryDto[] = [repository()];
 
   const version = (over: Partial<NpmVersionDto> = {}): NpmVersionDto => ({
     version: '0.0.4',
@@ -119,24 +115,10 @@ describe('PackagePage', () => {
     expect(text()).toContain('20.0 KiB');
   });
 
-  it('drops the dist-tag column for a cached package, rather than filling it with blanks', async () => {
-    await open('npmjs', 'zone.js');
-    flushStore();
-    http
-      .expectOne('/artifacts/api/repositories/npmjs/packages/zone.js/versions')
-      .flush({ versions: [version({ version: '0.15.0', distTags: [] })] });
-    await settle();
-
-    // The column is gone from the table; the note below it still explains why, which is the point.
-    expect(headers()).toEqual(['Version', 'Tarball', 'Published']);
-    expect(text()).toContain('cached from the upstream registry');
-    expect(text()).toContain('Dist-tags are not shown because the cache stores versions');
-  });
-
   it('draws an unmeasured tarball as unmeasured, never as zero', async () => {
-    await open('npmjs', 'zone.js');
+    await open('npm', 'zone.js');
     flushStore();
-    http.expectOne('/artifacts/api/repositories/npmjs/packages/zone.js/versions').flush({
+    http.expectOne('/artifacts/api/repositories/npm/packages/zone.js/versions').flush({
       versions: [version({ version: '0.15.0', tarballSizeBytes: null, publishedAt: null })],
     });
     await settle();
@@ -145,7 +127,7 @@ describe('PackagePage', () => {
     expect(text()).not.toContain('0 B');
   });
 
-  it('totals nothing, on either kind of repository', async () => {
+  it('totals nothing', async () => {
     await open('npm', 'a');
     flushStore();
     http
@@ -180,7 +162,10 @@ describe('PackagePage', () => {
     await settle();
 
     expect(text()).toContain('0.0.4');
+    // The column is gone from the table rather than filled with blanks that read as "no tags
+    // point here".
+    expect(headers()).toEqual(['Version', 'Tarball', 'Published']);
     expect(text()).not.toContain('Dist-tags');
-    expect(text()).not.toContain('cached from the upstream registry');
+    expect(text()).not.toContain('published to this platform');
   });
 });

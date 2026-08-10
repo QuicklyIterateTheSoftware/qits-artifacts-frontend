@@ -17,28 +17,25 @@ import { NONE, formatBytes, formatInstant, plural } from '../ui/format';
 import { LOADING, failed, ready, type Loadable } from '../ui/loadable';
 
 /**
- * One npm package: its versions, what each weighs, and — for a package published here rather than
- * cached from upstream — which dist-tags point at it.
+ * One npm package: its versions, what each weighs, and which dist-tags point at it.
  *
  * **Load budget: `2 + 0`.**
  *
- * - `GET /artifacts/api/repositories` — to learn whether this is the hosted registry or the proxy,
- *   which decides what the page may claim about the rows below.
+ * - `GET /artifacts/api/repositories` — to learn this is an npm repository at all, which decides
+ *   what the page may claim about the rows below.
  * - `GET …/repositories/{repo}/packages/{package}/versions` — the table.
  *
  * Nothing per row.
  *
- * **The type read is not decoration.** A proxy caches versions, not the upstream's tag pointers, so
- * a dist-tag column drawn against cached rows would be a column of things this store does not know.
- * The page reads which kind of repository it is in and drops the column rather than filling it with
- * blanks that look like "no tags point here".
+ * **The type read is not decoration.** The dist-tag column is drawn only where the type says the
+ * store actually knows the tag pointers, rather than filled with blanks that look like "no tags
+ * point here".
  *
- * **A null size is not a zero.** A proxied version can be indexed from a packument without its
- * tarball ever having been pulled; that row is real, its size is genuinely unknown, and the table
- * prints "not measured" rather than a plausible number. The same holds for a missing publish date.
- * The footer totals nothing — these tarballs are separate blobs and do not overlap the way OCI
- * layers do, but a total under a column with unmeasured rows in it would still be an
- * under-statement presented as a sum.
+ * **A null size is not a zero.** A row whose tarball was never measured is real and its size is
+ * genuinely unknown, so the table prints "not measured" rather than a plausible number. The same
+ * holds for a missing publish date. The footer totals nothing — these tarballs are separate blobs
+ * and do not overlap the way OCI layers do, but a total under a column with unmeasured rows in it
+ * would still be an under-statement presented as a sum.
  */
 @Component({
   selector: 'app-package-page',
@@ -81,7 +78,6 @@ export class PackagePage {
   });
 
   protected readonly hosted = computed(() => this.type() === 'npm-packages');
-  protected readonly cached = computed(() => this.type() === 'npm-proxy');
 
   /** How many columns the empty row has to span — the dist-tag column comes and goes. */
   protected readonly columns = computed(() => (this.hosted() ? 4 : 3));
@@ -91,14 +87,8 @@ export class PackagePage {
     if (state.kind !== 'ready') {
       return '';
     }
-    const where = this.cached()
-      ? 'cached from the upstream registry'
-      : this.hosted()
-        ? 'published to this platform'
-        : '';
-    return where
-      ? `${plural(state.value.length, 'version')} · ${where}`
-      : plural(state.value.length, 'version');
+    const versions = plural(state.value.length, 'version');
+    return this.hosted() ? `${versions} · published to this platform` : versions;
   });
 
   constructor() {
