@@ -1,6 +1,6 @@
 {
   "name": "qits-platform-spa-artifacts",
-  "version": "2026.807.122946",
+  "version": "2026.812.152836",
   "private": true,
   "description": "The artifact registry's frontend: an Angular application that consumes @qits/ui-components from qits' own npm registry. It ships no image — qits-platform-artifacts serves it via Quinoa at /artifacts/.",
   "license": "MIT",
