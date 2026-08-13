@@ -7,7 +7,7 @@
   },
   "newProjectRoot": "projects",
   "projects": {
-    "qits-platform-spa-artifacts": {
+    "qits-spa-artifacts": {
       "projectType": "application",
       "schematics": {},
       "root": "",
@@ -56,10 +56,10 @@
           "builder": "@angular/build:dev-server",
           "configurations": {
             "production": {
-              "buildTarget": "qits-platform-spa-artifacts:build:production"
+              "buildTarget": "qits-spa-artifacts:build:production"
             },
             "development": {
-              "buildTarget": "qits-platform-spa-artifacts:build:development"
+              "buildTarget": "qits-spa-artifacts:build:development"
             }
           },
           "defaultConfiguration": "development",
