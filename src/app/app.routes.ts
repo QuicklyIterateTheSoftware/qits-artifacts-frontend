@@ -4,6 +4,7 @@ import { CleanupPage } from './cleanup/cleanup-page';
 import { ImagePage } from './image/image-page';
 import { NotFound } from './not-found/not-found';
 import { PackagePage } from './package/package-page';
+import { MavenPage } from './maven/maven-page';
 import { RepositoriesPage } from './repositories/repositories-page';
 import { RepositoryPage } from './repository/repository-page';
 
@@ -53,6 +54,7 @@ export const routes: Routes = [
       { path: 'repositories/:repo/cleanup', component: CleanupPage },
       { path: 'repositories/:repo/images/:image', component: ImagePage },
       { path: 'repositories/:repo/packages/:package', component: PackagePage },
+      { path: 'repositories/:repo/maven-packages/:coordinate', component: MavenPage },
       { path: '**', component: NotFound },
     ],
   },

@@ -164,6 +164,20 @@ export interface VersionsResponse {
   readonly versions: readonly NpmVersionDto[];
 }
 
+export interface MavenPackageDto {
+  readonly name: string;
+  readonly versionCount: number;
+  readonly sizeBytes: number;
+}
+export interface MavenPackagesResponse { readonly packages: readonly MavenPackageDto[]; }
+export interface MavenVersionDto {
+  readonly version: string;
+  readonly files: readonly string[];
+  readonly sizeBytes: number;
+  readonly publishedAt: string;
+}
+export interface MavenVersionsResponse { readonly versions: readonly MavenVersionDto[]; }
+
 /**
  * The honesty panel's numbers, and the reason it exists: these five figures describe one store
  * and they do not reconcile, so the store-level view names all of them rather than picking a

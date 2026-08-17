@@ -40,6 +40,7 @@
     />
 
     @if (images().kind === 'ready') {
+      <label class="search">Search images<input type="search" placeholder="Filter by image name…" [value]="search()" (input)="setSearch($event)" /></label>
       <div class="scroll">
         <table>
           <caption>
@@ -93,6 +94,7 @@
     />
 
     @if (packages().kind === 'ready') {
+      <label class="search">Search packages<input type="search" placeholder="Filter by package name…" [value]="search()" (input)="setSearch($event)" /></label>
       <div class="scroll">
         <table>
           <thead>
@@ -123,6 +125,18 @@
           </tbody>
         </table>
       </div>
+    }
+  </section>
+}
+
+@if (isMaven()) {
+  <section>
+    <app-async [state]="mavenPackages()" loadingLabel="Loading Maven packages" errorLabel="Could not load Maven packages" (retry)="loadMavenPackages()" />
+    @if (mavenPackages().kind === 'ready') {
+      <label class="search">Search coordinates<input type="search" placeholder="Filter by group or artifact…" [value]="search()" (input)="setSearch($event)" /></label>
+      <div class="scroll"><table><thead><tr><th>Coordinate</th><th class="num">Versions</th><th class="num">Published size</th></tr></thead>
+        <tbody>@for (package of mavenRows(); track package.name) {<tr><th class="mono"><a [routerLink]="['/repositories', repoName(), 'maven-packages', package.name]">{{ package.name }}</a></th><td class="num">{{ package.versionCount }}</td><td class="num">{{ formatBytes(package.sizeBytes) }}</td></tr>
+        } @empty {<tr><td colspan="3"><app-empty message="No Maven coordinates match this search." /></td></tr>}</tbody></table></div>
     }
   </section>
 }

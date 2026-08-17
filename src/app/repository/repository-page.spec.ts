@@ -30,6 +30,7 @@ describe('RepositoryPage', () => {
   const store: readonly ArtifactRepositoryDto[] = [
     repository(),
     repository({ name: 'npm', type: 'npm-packages', itemCount: 2, sizeBytes: 87040 }),
+    repository({ name: 'maven', type: 'maven-packages', itemCount: 3, sizeBytes: 112640 }),
     repository({ name: 'ci-videos', type: 'ci-videos', itemCount: 0, sizeBytes: 0 }),
   ];
 
@@ -159,12 +160,26 @@ describe('RepositoryPage', () => {
   });
 
   it('says a name that is not in the store is not in the store', async () => {
-    await open('maven');
+    await open('missing');
     flushStore();
     await settle();
 
     http.verify();
     expect(text()).toContain('There is no repository called');
+  });
+
+  it('drills into Maven coordinates instead of stopping at the repository', async () => {
+    await open('maven');
+    flushStore();
+    await settle();
+    http.expectOne('/artifacts/api/repositories/maven/maven-packages').flush({ packages: [
+      { name: 'eu.wohlben.qits:qits-eventstream', versionCount: 2, sizeBytes: 112640 },
+    ] });
+    await settle();
+    expect(text()).toContain('eu.wohlben.qits:qits-eventstream');
+    expect(text()).toContain('110 KiB');
+    const link = (harness.fixture.nativeElement as HTMLElement).querySelector<HTMLAnchorElement>('tbody a');
+    expect(link?.getAttribute('href')).toContain('maven-packages');
   });
 
   it('reports a 400 from the images endpoint rather than showing an empty repository', async () => {
