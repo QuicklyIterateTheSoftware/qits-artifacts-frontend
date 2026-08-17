@@ -16,6 +16,7 @@ import type {
   ArtifactRecordDto,
   ArtifactRepositoryDto,
   NpmPackageDto,
+  MavenPackageDto,
   OciImageDto,
 } from '../api/dto';
 import { Async } from '../ui/async';
@@ -81,6 +82,8 @@ export class RepositoryPage {
 
   /** Idle until the type says this repository has packages. */
   protected readonly packages = signal<Loadable<readonly NpmPackageDto[]>>(IDLE);
+  protected readonly mavenPackages = signal<Loadable<readonly MavenPackageDto[]>>(IDLE);
+  protected readonly search = signal('');
 
   /** Directly uploaded CI records; idle for protocol repositories. */
   protected readonly records = signal<Loadable<readonly ArtifactRecordDto[]>>(IDLE);
@@ -109,6 +112,7 @@ export class RepositoryPage {
 
   protected readonly isOci = computed(() => isOci(this.repository()?.type ?? ''));
   protected readonly isNpm = computed(() => isNpm(this.repository()?.type ?? ''));
+  protected readonly isMaven = computed(() => this.repository()?.type === 'maven-packages');
   protected readonly isCi = computed(() => {
     const type = this.repository()?.type;
     return type === 'ci-screenshots' || type === 'ci-videos';
@@ -116,17 +120,21 @@ export class RepositoryPage {
 
   /** True for the two types that have no listing endpoint at all. */
   protected readonly hasNoListing = computed(
-    () => this.repository() !== null && !this.isOci() && !this.isNpm() && !this.isCi(),
+    () => this.repository() !== null && !this.isOci() && !this.isNpm() && !this.isMaven() && !this.isCi(),
   );
 
   protected readonly imageRows = computed(() => {
     const state = this.images();
-    return state.kind === 'ready' ? state.value : [];
+    return state.kind === 'ready' ? this.filtered(state.value) : [];
   });
 
   protected readonly packageRows = computed(() => {
     const state = this.packages();
-    return state.kind === 'ready' ? state.value : [];
+    return state.kind === 'ready' ? this.filtered(state.value) : [];
+  });
+  protected readonly mavenRows = computed(() => {
+    const state = this.mavenPackages();
+    return state.kind === 'ready' ? this.filtered(state.value) : [];
   });
 
   protected readonly recordRows = computed(() => {
@@ -159,6 +167,7 @@ export class RepositoryPage {
   protected async reload(): Promise<void> {
     this.images.set(IDLE);
     this.packages.set(IDLE);
+    this.mavenPackages.set(IDLE);
     this.records.set(IDLE);
     this.repositories.set(LOADING);
     try {
@@ -169,6 +178,8 @@ export class RepositoryPage {
         await this.loadImages();
       } else if (repository && isNpm(repository.type)) {
         await this.loadPackages();
+      } else if (repository?.type === 'maven-packages') {
+        await this.loadMavenPackages();
       } else if (
         repository &&
         (repository.type === 'ci-screenshots' || repository.type === 'ci-videos')
@@ -196,6 +207,18 @@ export class RepositoryPage {
     } catch (error) {
       this.packages.set(failed(error));
     }
+  }
+
+  protected async loadMavenPackages(): Promise<void> {
+    this.mavenPackages.set(LOADING);
+    try { this.mavenPackages.set(ready(await this.api.mavenPackages(this.repoName()))); }
+    catch (error) { this.mavenPackages.set(failed(error)); }
+  }
+
+  protected setSearch(event: Event): void { this.search.set((event.target as HTMLInputElement).value); }
+  private filtered<T extends { readonly name: string }>(rows: readonly T[]): readonly T[] {
+    const needle = this.search().trim().toLocaleLowerCase();
+    return needle ? rows.filter((row) => row.name.toLocaleLowerCase().includes(needle)) : rows;
   }
 
   protected async loadRecords(): Promise<void> {

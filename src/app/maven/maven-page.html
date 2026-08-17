@@ -1,0 +1,6 @@
+<nav class="crumbs"><a routerLink="/">Artifacts</a><span class="sep">/</span><a [routerLink]="['/repositories', repo()]">{{ repo() }}</a><span class="sep">/</span><span>{{ coordinate() }}</span></nav>
+<header class="head"><div><h1 class="mono">{{ coordinate() }}</h1><p class="lede">Published Maven versions and the files available to clients.</p></div><qits-button variant="secondary" size="sm" (pressed)="load()">Refresh</qits-button></header>
+<app-async [state]="state()" loadingLabel="Loading Maven versions" errorLabel="Could not load Maven versions" (retry)="load()" />
+@if (state().kind === 'ready') {<div class="scroll"><table><thead><tr><th>Version</th><th>Files</th><th class="num">Size</th><th>Published</th></tr></thead><tbody>
+@for (version of rows(); track version.version) {<tr><th class="mono">{{ version.version }}</th><td class="subtle" [title]="version.files.join('\n')">{{ version.files.join(', ') }}</td><td class="num">{{ formatBytes(version.sizeBytes) }}</td><td>{{ formatInstant(version.publishedAt) }}</td></tr>
+} @empty {<tr><td colspan="4"><app-empty message="This coordinate has no published versions." /></td></tr>}</tbody></table></div>}

@@ -12,6 +12,10 @@ import type {
   GcRepositorySweepReportDto,
   ImagesResponse,
   ManifestsResponse,
+  MavenPackageDto,
+  MavenPackagesResponse,
+  MavenVersionDto,
+  MavenVersionsResponse,
   NpmPackageDto,
   NpmVersionDto,
   OciImageDto,
@@ -154,6 +158,21 @@ export class ArtifactsApi {
           `/packages/${encodeURIComponent(packageName)}/versions`,
       ),
     );
+    return response.versions;
+  }
+
+  async mavenPackages(repository: string): Promise<readonly MavenPackageDto[]> {
+    const response = await firstValueFrom(this.http.get<MavenPackagesResponse>(
+      `${this.base}/artifacts/api/repositories/${encodeURIComponent(repository)}/maven-packages`,
+    ));
+    return response.packages;
+  }
+
+  async mavenVersions(repository: string, coordinate: string): Promise<readonly MavenVersionDto[]> {
+    const response = await firstValueFrom(this.http.get<MavenVersionsResponse>(
+      `${this.base}/artifacts/api/repositories/${encodeURIComponent(repository)}` +
+        `/maven-packages/${encodeURIComponent(coordinate)}/versions`,
+    ));
     return response.versions;
   }
 
