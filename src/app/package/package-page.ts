@@ -15,6 +15,7 @@ import { Async } from '../ui/async';
 import { Empty } from '../ui/empty';
 import { NONE, formatBytes, formatInstant, plural } from '../ui/format';
 import { LOADING, failed, ready, type Loadable } from '../ui/loadable';
+import { ArtifactsLinks } from '../ui/links';
 
 /**
  * One npm package: its versions, what each weighs, and which dist-tags point at it.
@@ -45,6 +46,8 @@ import { LOADING, failed, ready, type Loadable } from '../ui/loadable';
   styleUrls: ['../ui/page.css', './package-page.css'],
 })
 export class PackagePage {
+  protected readonly links = inject(ArtifactsLinks);
+
   private readonly api = inject(ArtifactsApi);
   private readonly route = inject(ActivatedRoute);
 

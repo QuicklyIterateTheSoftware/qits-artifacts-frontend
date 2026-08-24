@@ -1,6 +1,6 @@
 <nav class="crumbs" aria-label="Breadcrumb">
-  <a routerLink="/">Artifacts</a><span class="sep" aria-hidden="true">/</span
-  ><a [routerLink]="['/repositories', repoName()]">{{ repoName() }}</a
+  <a [routerLink]="links.commands()">Artifacts</a><span class="sep" aria-hidden="true">/</span
+  ><a [routerLink]="links.commands('repositories', repoName())">{{ repoName() }}</a
   ><span class="sep" aria-hidden="true">/</span><span>Cleanup</span>
 </nav>
 

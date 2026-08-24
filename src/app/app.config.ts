@@ -1,7 +1,7 @@
 import { provideBrowserGlobalErrorListeners, type ApplicationConfig } from '@angular/core';
 import { provideHttpClient, withFetch } from '@angular/common/http';
 import { provideRouter } from '@angular/router';
-import { provideQitsNavigation, provideQitsProjects } from '@qits/ui-components';
+import { provideQitsNavigation, provideQitsProjects, provideQitsScope } from '@qits/ui-components';
 
 import { routes } from './app.routes';
 
@@ -23,9 +23,12 @@ import { routes } from './app.routes';
  * - `provideQitsProjects` puts the project picker in the chrome's top-left slot, where the wordmark
  *   was, from one `GET /projects/api/projects`. Every resource on this platform belongs to a
  *   project, so which one is open is the outermost fact about a page rather than a filter inside
- *   one of them — above the links, because it scopes them. It also installs the library's default
- *   scope, which carries a pick in `?project=` on the current URL; the pages here do not read that
- *   parameter yet, and the picker is the chrome's regardless of which of them have been scoped.
+ *   one of them — above the links, because it scopes them. It also installs the repositories of
+ *   whatever project is in scope, which the sidebar draws under each category.
+ * - `provideQitsScope('repository')` says how deep this application's own addresses go. Everything
+ *   stored here is published by one repository, so every page is addressable under
+ *   `/<slug>/<category>/<repo>/` as well as at its own path, and the pages read the scope rather
+ *   than those route params.
  */
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -34,5 +37,6 @@ export const appConfig: ApplicationConfig = {
     provideHttpClient(withFetch()),
     provideQitsNavigation(),
     provideQitsProjects(),
+    provideQitsScope('repository'),
   ],
 };

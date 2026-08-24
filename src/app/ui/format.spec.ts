@@ -1,7 +1,6 @@
 import {
   NONE,
   UNKNOWN_SIZE,
-  ciExplorerLink,
   formatBytes,
   formatDayTime,
   formatInstant,
@@ -51,16 +50,6 @@ describe('isCommitSha', () => {
     expect(isCommitSha('0.0.4')).toBe(false);
     expect(isCommitSha('9F96484')).toBe(false);
     expect(isCommitSha('9f9648')).toBe(false);
-  });
-});
-
-describe('ciExplorerLink', () => {
-  it('addresses the repository, not a run — there is no route that takes a commit', () => {
-    expect(ciExplorerLink('qits-ci')).toBe('/ci/?repo=qits-ci');
-  });
-
-  it('encodes the id, so an unexpected name cannot break out of the parameter', () => {
-    expect(ciExplorerLink('a b&c')).toBe('/ci/?repo=a%20b%26c');
   });
 });
 

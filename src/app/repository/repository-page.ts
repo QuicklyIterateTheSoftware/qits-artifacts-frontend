@@ -24,6 +24,7 @@ import { Empty } from '../ui/empty';
 import { NONE, formatBytes, formatInstant, itemNoun, plural, shortDigest } from '../ui/format';
 import { IDLE, LOADING, failed, ready, type Loadable } from '../ui/loadable';
 import { isNpm, isOci, typeSummary, typeTone } from '../ui/repository-type';
+import { ArtifactsLinks } from '../ui/links';
 
 /**
  * One repository, drawn as whatever its type actually holds.
@@ -58,6 +59,8 @@ import { isNpm, isOci, typeSummary, typeTone } from '../ui/repository-type';
   styleUrls: ['../ui/page.css', './repository-page.css'],
 })
 export class RepositoryPage {
+  protected readonly links = inject(ArtifactsLinks);
+
   private readonly api = inject(ArtifactsApi);
   private readonly route = inject(ActivatedRoute);
 

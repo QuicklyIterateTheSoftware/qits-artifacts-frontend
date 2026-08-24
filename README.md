@@ -1,19 +1,30 @@
 # QitsPlatformSpaArtifacts
 
 The artifact explorer: what this platform stores, what it costs, and — one repository at a time,
-behind a plan — what it could stop storing. Served by qits-platform-artifacts itself at
-`/artifacts/` through Quinoa. Five pages, and almost all of it is read.
+behind a plan — what it could stop storing. Served by qits-artifacts itself at the **root of its own
+host** (`registry.<env>.<domain>`) through Quinoa. Five pages, and almost all of it is read.
 
-- **`/artifacts/`** — every repository, with its type, how many things it holds, its own byte union
-  and what cleaning it up would free, beside a store-level summary panel. Three requests, and none
-  per repository.
-- **`/artifacts/repositories/<repo>`** — one repository, drawn as whatever its type holds: images,
-  packages, or an honest empty state for the two CI types that have never held a row.
-- **`/artifacts/repositories/<repo>/cleanup`** — what collecting that repository would delete, what
-  it would keep and why each, and the one press in this application that deletes bytes.
-- **`/artifacts/repositories/<repo>/images/<image>`** — an image's tags and the manifest each points
-  at, led by the per-image union.
-- **`/artifacts/repositories/<repo>/packages/<package>`** — a package's versions.
+- **`/`** — every repository, with its type, how many things it holds, its own byte union and what
+  cleaning it up would free, beside a store-level summary panel. Three requests, and none per
+  repository.
+- **`/repositories/<repo>`** — one repository, drawn as whatever its type holds: images, packages,
+  or an honest empty state for the two CI types that have never held a row.
+- **`/repositories/<repo>/cleanup`** — what collecting that repository would delete, what it would
+  keep and why each, and the one press in this application that deletes bytes.
+- **`/repositories/<repo>/images/<image>`** — an image's tags and the manifest each points at, led
+  by the per-image union.
+- **`/repositories/<repo>/packages/<package>`** — a package's versions.
+
+**Every one of them is addressable twice.** The platform's URL grammar puts the same page under
+`/<projectSlug>/<category>/<repoName>/…`, and the scoped form resolves to the same component:
+`app.routes.ts` mounts one list of children under both, guarded on the category. With a repository
+in scope the front page leads with the image that repository publishes — `qits/<repoName>`, found
+by filtering every registry in the store — above the whole-store table, and says plainly that the
+name is a convention rather than a key.
+
+Every in-app link goes through `ArtifactsLinks.commands(...)`, which prefixes the scope on screen,
+and the one link out to qits-ci goes through `ArtifactsLinks.ciExplorer(...)`, which asks the
+platform for that application's origin rather than spelling `/ci/`.
 
 The pull-through caches are **not** here. They live in qits-platform-mirror, with their own admin
 UI; this explorer covers what the platform hosts.
@@ -73,10 +84,11 @@ ng serve
 
 Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
 
-`proxy.conf.json` forwards `/artifacts/api` to a gateway on `localhost:8080`, because `ng serve`
-puts no gateway in front. In a deployment every call is a same-origin path behind the real gateway.
-These reads carry no credential in either case — the service's token filter covers write methods
-only, and `/artifacts/api` is already a public path at the gateway.
+`proxy.conf.json` forwards `/artifacts/api`, `/projects/api` and `/main-navigation` to the edge on
+`localhost:8080`, because `ng serve` puts nothing in front. In a deployment every call is a
+same-origin path on this service's own host, which the edge path-routes to whichever service owns
+the prefix. These reads carry no credential in either case — the service's token filter covers write
+methods only.
 
 ## Running the checks
 

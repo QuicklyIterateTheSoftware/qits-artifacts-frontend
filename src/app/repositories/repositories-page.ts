@@ -1,11 +1,12 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { QitsBadge, QitsButton } from '@qits/ui-components';
+import { QitsBadge, QitsButton, QITS_SCOPE } from '@qits/ui-components';
 import { ArtifactsApi } from '../api/artifacts-api';
 import type {
   ArtifactRepositoryDto,
   GcRepositoriesPlanResponse,
   GcRepositoryPlanSummaryDto,
+  OciImageDto,
   StoreSummaryDto,
 } from '../api/dto';
 import { Async } from '../ui/async';
@@ -14,6 +15,7 @@ import { NONE, formatBytes, itemNoun, plural } from '../ui/format';
 import { LOADING, failed, ready, type Loadable } from '../ui/loadable';
 import { typeTone } from '../ui/repository-type';
 import { StoreSummary } from './store-summary';
+import { ArtifactsLinks } from '../ui/links';
 
 /** What the Cleanup column draws for one row, decided once here rather than in the template. */
 export type CleanupCell =
@@ -100,19 +102,50 @@ const EXCLUDED_NOTE = 'excluded by configuration';
   styleUrls: ['../ui/page.css', './repositories-page.css'],
 })
 export class RepositoriesPage {
+  protected readonly links = inject(ArtifactsLinks);
+
   private readonly api = inject(ArtifactsApi);
 
   protected readonly formatBytes = formatBytes;
   protected readonly typeTone = typeTone;
   protected readonly none = NONE;
 
+  private readonly scopeSource = inject(QITS_SCOPE, { optional: true });
+
+  /** The repository the address names, or undefined — this page's whole scoped behaviour. */
+  protected readonly scopedRepository = computed(() => this.scopeSource?.scope().repository);
+
+  /**
+   * The image name a scoped repository publishes: `qits/<repoName>`.
+   *
+   * A CONVENTION rather than a key. qits-cd derives an image name from a deploy plan's application
+   * name and every platform image so far lands under the `qits/` prefix, but nothing in the store
+   * records the link — so a repository that publishes under another name shows none here and the
+   * page says so rather than claiming it publishes nothing.
+   */
+  protected readonly scopedImageName = computed(() => {
+    const repository = this.scopedRepository();
+    return repository ? `qits/${repository}` : undefined;
+  });
+
   protected readonly repositories = signal<Loadable<readonly ArtifactRepositoryDto[]>>(LOADING);
+  /** Where the scoped image was found, one row per registry that holds it. */
+  protected readonly scopedImages =
+    signal<Loadable<readonly { readonly repository: string; readonly image: OciImageDto }[]>>(
+      LOADING,
+    );
   protected readonly summary = signal<Loadable<StoreSummaryDto>>(LOADING);
   protected readonly cleanup = signal<Loadable<GcRepositoriesPlanResponse>>(LOADING);
 
   /** The rows, once they are here; an empty list otherwise, so the template stays flat. */
   protected readonly rows = computed(() => {
     const state = this.repositories();
+    return state.kind === 'ready' ? state.value : [];
+  });
+
+  /** The scoped image's rows, on the same terms. */
+  protected readonly scopedRows = computed(() => {
+    const state = this.scopedImages();
     return state.kind === 'ready' ? state.value : [];
   });
 
@@ -162,10 +195,47 @@ export class RepositoriesPage {
   protected async loadRepositories(): Promise<void> {
     this.repositories.set(LOADING);
     try {
-      this.repositories.set(ready(await this.api.repositories()));
+      const repositories = await this.api.repositories();
+      this.repositories.set(ready(repositories));
+      await this.loadScopedImages(repositories);
     } catch (error) {
       this.repositories.set(failed(error));
     }
+  }
+
+  /**
+   * The scoped repository's own image, looked for in every OCI registry this store holds.
+   *
+   * <p><b>Client-side, and after the listing rather than instead of it.</b> There is no endpoint
+   * that takes an image name and answers which registries have it — the store is keyed by
+   * repository first — so this asks each OCI registry for its images and keeps the one match. The
+   * cost is bounded by the number of registries, which is a handful, and it is paid only when a
+   * repository is in scope.
+   *
+   * <p>A registry that fails to answer is left out rather than failing the page: the unscoped table
+   * beneath is still the useful thing on screen.
+   */
+  private async loadScopedImages(repositories: readonly ArtifactRepositoryDto[]): Promise<void> {
+    const wanted = this.scopedImageName();
+    if (!wanted) {
+      this.scopedImages.set(ready([]));
+      return;
+    }
+    this.scopedImages.set(LOADING);
+    const registries = repositories.filter((repository) => repository.type === 'oci-images');
+    const found = await Promise.all(
+      registries.map(async (registry) => {
+        try {
+          const images = await this.api.images(registry.name);
+          return images
+            .filter((image) => image.name === wanted)
+            .map((image) => ({ repository: registry.name, image }));
+        } catch {
+          return [];
+        }
+      }),
+    );
+    this.scopedImages.set(ready(found.flat()));
   }
 
   protected async loadSummary(): Promise<void> {
