@@ -65,15 +65,20 @@ export const categoryIsKnown: CanMatchFn = (_route, segments: UrlSegment[]) =>
   QITS_CATEGORIES.includes(segments[1]?.path as QitsCategory);
 
 /**
- * Every page above is addressable TWICE — at its own path, and under the repository whose artifacts
- * it shows — and both spellings resolve to the same component.
+ * Every page above is addressable THREE TIMES — at its own path, under a project, and under the
+ * repository whose artifacts it shows — and every spelling resolves to the same component.
  *
- * OWN routes come first, so a literal first segment always wins: `/repositories/npm` is this app's
- * listing, never a project called `repositories`. The scoped form follows, guarded on the category,
- * and `**` closes the list.
+ * The project form is what the chrome's project picker navigates to: `UrlScope.select(slug)` goes
+ * to `/<slug>/`, and without this route that pick would land on the 404 page.
+ *
+ * Order is the whole grammar, and it works because the three vocabularies cannot collide: a
+ * category is never a slug, and a slug is never one of this app's own first segments. OWN routes
+ * come first, so `/repositories/npm` is this app's listing and never a project called
+ * `repositories`; the repository form follows, guarded on the category; the project form takes what
+ * is left; and `**` closes the list.
  *
  * The pages read `inject(QITS_SCOPE).scope()` rather than these three params. A page that read them
- * would work in one spelling and be blank in the other.
+ * would work in one spelling and be blank in the others.
  */
 export const routes: Routes = [
   {
@@ -82,6 +87,7 @@ export const routes: Routes = [
     children: [
       ...OWN,
       { path: ':project/:category/:repository', canMatch: [categoryIsKnown], children: OWN },
+      { path: ':project', children: OWN },
       { path: '**', component: NotFound },
     ],
   },

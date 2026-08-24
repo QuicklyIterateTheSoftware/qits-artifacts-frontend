@@ -75,8 +75,12 @@ describe('App', () => {
     });
   });
 
-  it('draws an unknown URL under /artifacts/ as a page, still inside the chrome', async () => {
-    const harness = await RouterTestingHarness.create('/nothing-here');
+  /**
+   * Not `/nothing-here`: one unknown segment is a *project* now, and the listing is the right
+   * answer for one. A URL is unknown only once it is a path no scope could carry.
+   */
+  it('draws an unknown URL as a page, still inside the chrome', async () => {
+    const harness = await RouterTestingHarness.create('/nothing/here/at/all');
     const layout = harness.routeNativeElement as HTMLElement;
 
     expect(layout.tagName.toLowerCase()).toBe('qits-main-layout');
