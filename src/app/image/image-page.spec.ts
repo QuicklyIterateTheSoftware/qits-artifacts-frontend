@@ -41,9 +41,22 @@ describe('ImagePage', () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         // The CI link is an origin the PLATFORM states, not a path compiled in — so a spec that
-        // provided no navigation would assert against a link this app cannot honestly draw. This
-        // is the flat shape an edge that predates per-service hosts answers with.
-        provideQitsNavigationTree({ origin: 'https://dev.example.com' }),
+        // provided no navigation would assert against a link this app cannot honestly draw. There
+        // is no fallback behind this any more: an edge naming qits-ci nowhere draws no link.
+        provideQitsNavigationTree({
+          origin: 'https://dev.example.com',
+          slots: {
+            'services.details': [
+              {
+                app: 'qits-ci',
+                label: 'CI',
+                host: 'ci',
+                origin: 'https://ci.dev.example.com',
+                path: '/ci',
+              },
+            ],
+          },
+        }),
       ],
     });
     http = TestBed.inject(HttpTestingController);
@@ -197,7 +210,7 @@ describe('ImagePage', () => {
     await settle();
 
     const link = page().querySelector<HTMLAnchorElement>('tbody a');
-    expect(link?.getAttribute('href')).toBe('https://dev.example.com/ci/?repo=qits-ci');
+    expect(link?.getAttribute('href')).toBe('https://ci.dev.example.com/?repo=qits-ci');
     expect(link?.textContent?.trim()).toBe(FULL_SHA);
     expect(link?.getAttribute('aria-label')).toContain('look for commit 9f96484');
   });

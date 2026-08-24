@@ -44,17 +44,16 @@ export class ArtifactsLinks {
    * That is a naming convention rather than a key: qits-cd derives an image name from the deploy
    * plan's application name, and it happens to equal the git-host directory name qits-ci keys runs
    * by. When it does not, the tree opens with that node simply absent.
+   *
+   * <p>A platform naming qits-ci in no entry at all gets `undefined`, and the template draws no
+   * link. There is nothing to guess with: every service is on a host of its own, so a `/ci/`
+   * segment under the environment origin is not an address any more.
    */
   ciExplorer(imageName: string): string | undefined {
     const scope = this.scopeSource?.scope();
     if (scope?.repository && this.appLinks.origin('qits-ci')) {
       return this.appLinks.href('qits-ci', '', scope);
     }
-    return this.appLinks.href(
-      'qits-ci',
-      `?repo=${encodeURIComponent(imageName)}`,
-      undefined,
-      '/ci/',
-    );
+    return this.appLinks.href('qits-ci', `?repo=${encodeURIComponent(imageName)}`);
   }
 }

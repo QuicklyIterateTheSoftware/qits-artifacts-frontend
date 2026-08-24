@@ -31,8 +31,9 @@ describe('ArtifactsLinks', () => {
     };
   }
 
-  /** The platform as the edge states it: qits-ci on a host, or on none at all. */
-  function links(scope: QitsScope, hosted: boolean): ArtifactsLinks {
+  /** The platform as the edge states it: qits-ci on a host, under a segment, or named nowhere. */
+  function links(scope: QitsScope, ci: 'hosted' | 'segment' | 'absent'): ArtifactsLinks {
+    TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       providers: [
         provideZonelessChangeDetection(),
@@ -42,15 +43,19 @@ describe('ArtifactsLinks', () => {
           environment: 'dev',
           origin: 'https://dev.example.com',
           slots: {
-            'services.details': [
-              {
-                app: 'qits-ci',
-                label: 'CI',
-                host: hosted ? 'ci' : null,
-                origin: hosted ? 'https://ci.dev.example.com' : 'https://dev.example.com',
-                path: '/ci',
-              },
-            ],
+            'services.details':
+              ci === 'absent'
+                ? []
+                : [
+                    {
+                      app: 'qits-ci',
+                      label: 'CI',
+                      host: ci === 'hosted' ? 'ci' : null,
+                      origin:
+                        ci === 'hosted' ? 'https://ci.dev.example.com' : 'https://dev.example.com',
+                      path: '/ci',
+                    },
+                  ],
           },
         }),
       ],
@@ -59,7 +64,7 @@ describe('ArtifactsLinks', () => {
   }
 
   it('prefixes its own pages with the scope on screen', () => {
-    expect(links(REPOSITORY, true).commands('repositories', 'qits')).toEqual([
+    expect(links(REPOSITORY, 'hosted').commands('repositories', 'qits')).toEqual([
       '/',
       'qits',
       'services',
@@ -70,17 +75,21 @@ describe('ArtifactsLinks', () => {
   });
 
   it('leaves an unscoped address at the root', () => {
-    expect(links({}, true).commands('repositories', 'qits')).toEqual(['/', 'repositories', 'qits']);
+    expect(links({}, 'hosted').commands('repositories', 'qits')).toEqual([
+      '/',
+      'repositories',
+      'qits',
+    ]);
   });
 
   it('opens the ci host at the same scope when there is one', () => {
-    expect(links(REPOSITORY, true).ciExplorer('qits/qits-ci')).toBe(
+    expect(links(REPOSITORY, 'hosted').ciExplorer('qits/qits-ci')).toBe(
       'https://ci.dev.example.com/qits/services/qits-ci/',
     );
   });
 
   it('falls back to the query form with no repository in scope', () => {
-    expect(links({}, true).ciExplorer('qits/qits-ci')).toBe(
+    expect(links({}, 'hosted').ciExplorer('qits/qits-ci')).toBe(
       'https://ci.dev.example.com/?repo=qits%2Fqits-ci',
     );
   });
@@ -92,8 +101,19 @@ describe('ArtifactsLinks', () => {
    * flat navigation.
    */
   it('uses the query form against a platform that serves ci under a segment', () => {
-    expect(links(REPOSITORY, false).ciExplorer('qits/qits-ci')).toBe(
+    expect(links(REPOSITORY, 'segment').ciExplorer('qits/qits-ci')).toBe(
       'https://dev.example.com/ci/?repo=qits%2Fqits-ci',
     );
+  });
+
+  /**
+   * A platform naming qits-ci nowhere gets no address at all, and the template draws no link.
+   *
+   * There is nothing to fall back on: every service is on a host of its own, so a `/ci/` segment
+   * under the environment origin would be a URL this application invented.
+   */
+  it('writes no address at all when the platform names no ci application', () => {
+    expect(links(REPOSITORY, 'absent').ciExplorer('qits/qits-ci')).toBeUndefined();
+    expect(links({}, 'absent').ciExplorer('qits/qits-ci')).toBeUndefined();
   });
 });
