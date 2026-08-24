@@ -1,6 +1,6 @@
 <nav class="crumbs" aria-label="Breadcrumb">
-  <a routerLink="/">Artifacts</a><span class="sep" aria-hidden="true">/</span
-  ><a [routerLink]="['/repositories', repoName()]">{{ repoName() }}</a
+  <a [routerLink]="links.commands()">Artifacts</a><span class="sep" aria-hidden="true">/</span
+  ><a [routerLink]="links.commands('repositories', repoName())">{{ repoName() }}</a
   ><span class="sep" aria-hidden="true">/</span><span>{{ imageName() }}</span>
 </nav>
 
@@ -90,8 +90,8 @@
         @for (tag of rows(); track tag.tag + tag.digest) {
           <tr>
             <th scope="row" class="mono">
-              @if (isCommitSha(tag.tag)) {
-                <a [href]="ciExplorerLink(imageName())" [attr.aria-label]="ciLinkLabel(tag.tag)">
+              @if (isCommitSha(tag.tag) && links.ciExplorer(imageName()); as ci) {
+                <a [href]="ci" [attr.aria-label]="ciLinkLabel(tag.tag)">
                   {{ tag.tag }}
                 </a>
               } @else {

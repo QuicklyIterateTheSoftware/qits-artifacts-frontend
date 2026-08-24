@@ -1,5 +1,5 @@
 <nav class="crumbs" aria-label="Breadcrumb">
-  <a routerLink="/">Artifacts</a><span class="sep" aria-hidden="true">/</span
+  <a [routerLink]="links.commands()">Artifacts</a><span class="sep" aria-hidden="true">/</span
   ><span>{{ repoName() }}</span>
 </nav>
 
@@ -59,7 +59,7 @@
             @for (image of imageRows(); track image.name) {
               <tr>
                 <th scope="row">
-                  <a [routerLink]="['/repositories', repoName(), 'images', image.name]">
+                  <a [routerLink]="links.commands('repositories', repoName(), 'images', image.name)">
                     {{ image.name }}
                   </a>
                 </th>
@@ -108,7 +108,7 @@
             @for (package of packageRows(); track package.name) {
               <tr>
                 <th scope="row">
-                  <a [routerLink]="['/repositories', repoName(), 'packages', package.name]">
+                  <a [routerLink]="links.commands('repositories', repoName(), 'packages', package.name)">
                     {{ package.name }}
                   </a>
                 </th>
@@ -135,7 +135,7 @@
     @if (mavenPackages().kind === 'ready') {
       <label class="search">Search coordinates<input type="search" placeholder="Filter by group or artifact…" [value]="search()" (input)="setSearch($event)" /></label>
       <div class="scroll"><table><thead><tr><th>Coordinate</th><th class="num">Versions</th><th class="num">Published size</th></tr></thead>
-        <tbody>@for (package of mavenRows(); track package.name) {<tr><th class="mono"><a [routerLink]="['/repositories', repoName(), 'maven-packages', package.name]">{{ package.name }}</a></th><td class="num">{{ package.versionCount }}</td><td class="num">{{ formatBytes(package.sizeBytes) }}</td></tr>
+        <tbody>@for (package of mavenRows(); track package.name) {<tr><th class="mono"><a [routerLink]="links.commands('repositories', repoName(), 'maven-packages', package.name)">{{ package.name }}</a></th><td class="num">{{ package.versionCount }}</td><td class="num">{{ formatBytes(package.sizeBytes) }}</td></tr>
         } @empty {<tr><td colspan="3"><app-empty message="No Maven coordinates match this search." /></td></tr>}</tbody></table></div>
     }
   </section>

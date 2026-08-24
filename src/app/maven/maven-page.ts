@@ -6,8 +6,11 @@ import { ArtifactsApi } from '../api/artifacts-api';
 import type { MavenVersionDto } from '../api/dto';
 import { Async } from '../ui/async'; import { Empty } from '../ui/empty';
 import { formatBytes, formatInstant } from '../ui/format'; import { LOADING, failed, ready, type Loadable } from '../ui/loadable';
+import { ArtifactsLinks } from '../ui/links';
 @Component({ selector: 'app-maven-page', changeDetection: ChangeDetectionStrategy.OnPush, imports: [Async, Empty, QitsButton, RouterLink], templateUrl: './maven-page.html', styleUrls: ['../ui/page.css'] })
 export class MavenPage {
+  protected readonly links = inject(ArtifactsLinks);
+
   private readonly api = inject(ArtifactsApi); private readonly params = toSignal(inject(ActivatedRoute).paramMap, { initialValue: convertToParamMap({}) });
   protected readonly repo = computed(() => this.params().get('repo') ?? ''); protected readonly coordinate = computed(() => this.params().get('coordinate') ?? '');
   protected readonly state = signal<Loadable<readonly MavenVersionDto[]>>(LOADING); protected readonly formatBytes = formatBytes; protected readonly formatInstant = formatInstant;

@@ -15,6 +15,7 @@ import { Async } from '../ui/async';
 import { formatBytes, formatInstant, plural } from '../ui/format';
 import { LOADING, describeError, failed, ready, statusOf, type Loadable } from '../ui/loadable';
 import { typeTone } from '../ui/repository-type';
+import { ArtifactsLinks } from '../ui/links';
 
 /**
  * One repository's cleanup: what would be deleted, what would not, why each — and, below all of
@@ -58,6 +59,8 @@ import { typeTone } from '../ui/repository-type';
   styleUrls: ['../ui/page.css', './cleanup-page.css'],
 })
 export class CleanupPage {
+  protected readonly links = inject(ArtifactsLinks);
+
   private readonly api = inject(ArtifactsApi);
   private readonly route = inject(ActivatedRoute);
 

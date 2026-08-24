@@ -4,6 +4,7 @@ import { provideLocationMocks } from '@angular/common/testing';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
+import { provideQitsNavigationTree } from '@qits/ui-components';
 import { routes } from '../app.routes';
 import type { OciTagDto } from '../api/dto';
 
@@ -16,7 +17,8 @@ const SHORT_SHA = '9f96484';
  *
  * The link assertions are the point of this file. A tag that looks like a commit gets a link, a tag
  * that does not gets none, and the link goes to the CI explorer's **repository** view — never to a
- * run URL, which nothing in either store could tell us.
+ * run URL, which nothing in either store could tell us. Which address that is, is
+ * `ArtifactsLinks`' answer and `links.spec.ts`' subject; here it only has to be there.
  */
 describe('ImagePage', () => {
   let http: HttpTestingController;
@@ -38,6 +40,10 @@ describe('ImagePage', () => {
         provideLocationMocks(),
         provideHttpClient(),
         provideHttpClientTesting(),
+        // The CI link is an origin the PLATFORM states, not a path compiled in — so a spec that
+        // provided no navigation would assert against a link this app cannot honestly draw. This
+        // is the flat shape an edge that predates per-service hosts answers with.
+        provideQitsNavigationTree({ origin: 'https://dev.example.com' }),
       ],
     });
     http = TestBed.inject(HttpTestingController);
@@ -191,7 +197,7 @@ describe('ImagePage', () => {
     await settle();
 
     const link = page().querySelector<HTMLAnchorElement>('tbody a');
-    expect(link?.getAttribute('href')).toBe('/ci/?repo=qits-ci');
+    expect(link?.getAttribute('href')).toBe('https://dev.example.com/ci/?repo=qits-ci');
     expect(link?.textContent?.trim()).toBe(FULL_SHA);
     expect(link?.getAttribute('aria-label')).toContain('look for commit 9f96484');
   });

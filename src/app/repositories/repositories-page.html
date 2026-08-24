@@ -12,6 +12,44 @@
 
 <div class="layout">
   <section class="main">
+    @if (scopedImageName(); as wanted) {
+      <section class="scoped">
+        <h2>{{ wanted }}</h2>
+        @if (scopedImages().kind === 'ready') {
+          @if (scopedRows().length) {
+            <p class="lede">
+              This repository publishes <code>{{ wanted }}</code
+              >, filtered out of every registry in this store. Everything the store holds is in the
+              table below.
+            </p>
+            <ul class="scoped-list">
+              @for (row of scopedRows(); track row.repository + row.image.name) {
+                <li>
+                  <a
+                    [routerLink]="
+                      links.commands('repositories', row.repository, 'images', row.image.name)
+                    "
+                    >{{ row.repository }}/{{ row.image.name }}</a
+                  >
+                  <span class="subtle"
+                    >{{ row.image.tagCount }} tags · {{ formatBytes(row.image.sizeBytes) }}</span
+                  >
+                </li>
+              }
+            </ul>
+          } @else {
+            <p class="lede">
+              No image called <code>{{ wanted }}</code> is stored here. The name is a convention —
+              qits-cd derives it from a deploy plan's application name — so a repository publishing
+              under another name shows nothing here. Everything the store holds is below.
+            </p>
+          }
+        } @else {
+          <p class="lede">Looking for {{ wanted }} in this store's registries…</p>
+        }
+      </section>
+    }
+
     <app-async
       [state]="repositories()"
       loadingLabel="Loading the repositories"
@@ -61,7 +99,9 @@
             @for (repository of rows(); track repository.name) {
               <tr>
                 <th scope="row">
-                  <a [routerLink]="['/repositories', repository.name]">{{ repository.name }}</a>
+                  <a [routerLink]="links.commands('repositories', repository.name)">{{
+                    repository.name
+                  }}</a>
                 </th>
                 <td>
                   <qits-badge [label]="repository.type" [tone]="typeTone(repository.type)" />
@@ -85,7 +125,7 @@
                     }
                     @case ('figure') {
                       <a
-                        [routerLink]="['/repositories', repository.name, 'cleanup']"
+                        [routerLink]="links.commands('repositories', repository.name, 'cleanup')"
                         [title]="$any(cell).title"
                       >
                         {{ $any(cell).text }}
@@ -102,7 +142,10 @@
                   }
                 </td>
                 <td class="actions">
-                  <a class="review" [routerLink]="['/repositories', repository.name, 'cleanup']">
+                  <a
+                    class="review"
+                    [routerLink]="links.commands('repositories', repository.name, 'cleanup')"
+                  >
                     Review cleanup
                   </a>
                 </td>

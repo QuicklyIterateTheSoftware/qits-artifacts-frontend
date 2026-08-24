@@ -1,5 +1,5 @@
-import type { Routes } from '@angular/router';
-import { QitsMainLayout } from '@qits/ui-components';
+import type { CanMatchFn, Routes, UrlSegment } from '@angular/router';
+import { QitsMainLayout, QITS_CATEGORIES, type QitsCategory } from '@qits/ui-components';
 import { CleanupPage } from './cleanup/cleanup-page';
 import { ImagePage } from './image/image-page';
 import { NotFound } from './not-found/not-found';
@@ -41,20 +41,53 @@ import { RepositoryPage } from './repository/repository-page';
  * All five pages load eagerly. There are five of them, they share every component below them, and a
  * lazy chunk boundary would be ceremony that costs a round trip.
  *
- * The `**` route sits inside the layout: `/artifacts/` is a segment this application owns outright,
- * so an unknown URL under it is an ordinary 404 and is drawn with the chrome around it.
+ * The `**` route sits inside the layout: this application owns the whole of its own host, so an
+ * unknown URL is an ordinary 404 and is drawn with the chrome around it.
+ */
+const OWN: Routes = [
+  { path: '', component: RepositoriesPage },
+  { path: 'repositories/:repo', component: RepositoryPage },
+  { path: 'repositories/:repo/cleanup', component: CleanupPage },
+  { path: 'repositories/:repo/images/:image', component: ImagePage },
+  { path: 'repositories/:repo/packages/:package', component: PackagePage },
+  { path: 'repositories/:repo/maven-packages/:coordinate', component: MavenPage },
+];
+
+/**
+ * Whether the address is really `/<slug>/<category>/<repo>/…` and not a page of this app's own.
+ *
+ * The second segment is the discriminator, because it is the only one whose vocabulary is closed:
+ * a project slug can be anything, a repository name can be anything, and `services` is a category
+ * on this platform and nothing else. qits-projects refuses a slug that spells a category or a
+ * routed segment, so the two vocabularies cannot collide from the other side either.
+ */
+export const categoryIsKnown: CanMatchFn = (_route, segments: UrlSegment[]) =>
+  QITS_CATEGORIES.includes(segments[1]?.path as QitsCategory);
+
+/**
+ * Every page above is addressable THREE TIMES — at its own path, under a project, and under the
+ * repository whose artifacts it shows — and every spelling resolves to the same component.
+ *
+ * The project form is what the chrome's project picker navigates to: `UrlScope.select(slug)` goes
+ * to `/<slug>/`, and without this route that pick would land on the 404 page.
+ *
+ * Order is the whole grammar, and it works because the three vocabularies cannot collide: a
+ * category is never a slug, and a slug is never one of this app's own first segments. OWN routes
+ * come first, so `/repositories/npm` is this app's listing and never a project called
+ * `repositories`; the repository form follows, guarded on the category; the project form takes what
+ * is left; and `**` closes the list.
+ *
+ * The pages read `inject(QITS_SCOPE).scope()` rather than these three params. A page that read them
+ * would work in one spelling and be blank in the others.
  */
 export const routes: Routes = [
   {
     path: '',
     component: QitsMainLayout,
     children: [
-      { path: '', component: RepositoriesPage },
-      { path: 'repositories/:repo', component: RepositoryPage },
-      { path: 'repositories/:repo/cleanup', component: CleanupPage },
-      { path: 'repositories/:repo/images/:image', component: ImagePage },
-      { path: 'repositories/:repo/packages/:package', component: PackagePage },
-      { path: 'repositories/:repo/maven-packages/:coordinate', component: MavenPage },
+      ...OWN,
+      { path: ':project/:category/:repository', canMatch: [categoryIsKnown], children: OWN },
+      { path: ':project', children: OWN },
       { path: '**', component: NotFound },
     ],
   },

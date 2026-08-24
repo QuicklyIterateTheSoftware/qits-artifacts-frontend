@@ -156,27 +156,3 @@ export function shortDigest(digest: string): string {
   const [algorithm, hex] = digest.split(':');
   return hex ? `${algorithm}:${hex.slice(0, 12)}` : digest.slice(0, 19);
 }
-
-/**
- * The deep link out to the CI explorer for a sha-tagged image, and the one place in this app where
- * the two stores are joined at all.
- *
- * **It addresses the repository, not the run**, and that is the honest shape rather than a
- * limitation worked around. qits-ci's routes are `/ci/` (the tree, expanded by `?project=` and
- * `?repo=`) and `/ci/runs/<runId>` — there is no route that takes a commit sha, and no endpoint
- * that turns one into a run id, so a link claiming to open "the run for this commit" would be a
- * URL this application invented. Opening the tree at the repository, with the sha printed beside
- * the link for the reader to match, is a true thing to offer.
- *
- * The repository id is the *image name*, and that is a naming convention rather than a key:
- * qits-cd derives an image name from the deploy plan's application name, and it happens to equal
- * the git-host directory name qits-ci keys runs by. When it does not, the tree opens with that
- * node simply absent — a link that lands somewhere useful and shows nothing, rather than one that
- * shows something wrong. The UI says as much where the link is drawn.
- *
- * A plain `href`, never `routerLink`: `/ci/` is a different Angular application behind a different
- * base path, so this is a full-document navigation no router can perform.
- */
-export function ciExplorerLink(imageName: string): string {
-  return `/ci/?repo=${encodeURIComponent(imageName)}`;
-}

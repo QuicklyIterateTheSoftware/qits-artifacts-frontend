@@ -15,7 +15,6 @@ import type { ArtifactFilters, OciImageDto, OciManifestDto, OciTagDto } from '..
 import { Async } from '../ui/async';
 import { Empty } from '../ui/empty';
 import {
-  ciExplorerLink,
   formatBytes,
   formatInstant,
   isCommitSha,
@@ -24,6 +23,7 @@ import {
   shortSha,
 } from '../ui/format';
 import { LOADING, failed, ready, type Loadable } from '../ui/loadable';
+import { ArtifactsLinks } from '../ui/links';
 
 /**
  * One image: its tags, the manifest each points at, and the one honest link this platform has
@@ -51,7 +51,7 @@ import { LOADING, failed, ready, type Loadable } from '../ui/loadable';
  * explorer, opened at the repository whose name matches this image's, with the sha printed for the
  * reader to match against the run list. It is not a link to a run: qits-ci addresses a run by its
  * own id and has no route and no lookup that takes a commit, so a run URL would be one this
- * application invented. See `ciExplorerLink` for why the repository is addressed by image name and
+ * application invented. See `ArtifactsLinks.ciExplorer` for why the repository is addressed by image name and
  * what happens when that convention does not hold.
  *
  * The full-digest toggle is a **local signal**. It costs no request, so there is nothing to restore
@@ -65,6 +65,8 @@ import { LOADING, failed, ready, type Loadable } from '../ui/loadable';
   styleUrls: ['../ui/page.css', './image-page.css'],
 })
 export class ImagePage {
+  protected readonly links = inject(ArtifactsLinks);
+
   private readonly api = inject(ArtifactsApi);
   private readonly route = inject(ActivatedRoute);
 
@@ -73,7 +75,6 @@ export class ImagePage {
   protected readonly isCommitSha = isCommitSha;
   protected readonly shortDigest = shortDigest;
   protected readonly shortSha = shortSha;
-  protected readonly ciExplorerLink = ciExplorerLink;
 
   private readonly params = toSignal(this.route.paramMap, {
     initialValue: convertToParamMap({}),
