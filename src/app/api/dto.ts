@@ -16,7 +16,7 @@
  */
 
 /**
- * The six archetypes this service holds, in their kebab wire form.
+ * The seven archetypes this service holds, in their kebab wire form.
  *
  * Every one of them is **hosted**: bytes this platform produced and is the only copy of. The
  * pull-through caches — `oci-mirror`, `npm-proxy`, `maven-proxy` — moved out to qits-platform-mirror
@@ -24,7 +24,10 @@
  * service's store.
  *
  * A stale union is worse than a loose one, because a type missing from it silently loses its tone,
- * its summary and the noun its count is drawn with.
+ * its summary and the noun its count is drawn with. `docs` is the proof: it shipped on the wire
+ * while this union still said six, so a docs repository fell through every `switch` below to the
+ * default arm and was drawn as a CI type that had never held a row — right down to the sentence
+ * about the golden-diff loop.
  */
 export type RepositoryTypeSlug =
   | 'ci-screenshots'
@@ -32,15 +35,16 @@ export type RepositoryTypeSlug =
   | 'oci-images'
   | 'npm-packages'
   | 'maven-packages'
-  | 'daemon-binaries';
+  | 'daemon-binaries'
+  | 'docs';
 
 /**
  * One repository of the store.
  *
  * `itemCount` counts whatever the type stores — images for the two OCI types, packages for the two
- * npm ones, deployed files for `maven-packages`, published versions for `daemon-binaries`, records
- * for the two ci ones — which is why the UI never prints the bare number without the noun beside
- * it.
+ * npm ones, deployed files for `maven-packages`, published versions for `daemon-binaries` and for
+ * `docs`, records for the two ci ones — which is why the UI never prints the bare number without
+ * the noun beside it.
  *
  * `sizeBytes` is this repository's own **referenced-blob union**, or null where the service cannot
  * answer one.
@@ -177,6 +181,107 @@ export interface MavenVersionDto {
   readonly publishedAt: string;
 }
 export interface MavenVersionsResponse { readonly versions: readonly MavenVersionDto[]; }
+
+/**
+ * One daemon of the `daemon-binaries` repository, folded from its published versions.
+ *
+ * There is no daemon table behind this: a daemon exists exactly as long as a published version
+ * names it, which is why `latestVersion` and `latestPublishedAt` are not nullable — a daemon with
+ * no versions is never enumerated at all.
+ *
+ * `sizeBytes` is the **per-daemon union**: every distinct blob any of its versions names, counted
+ * once. Two versions built from identical bytes are one blob in the store, so summing the versions
+ * below would report disk this daemon does not occupy. Σ over the daemons of a repository is ≥ the
+ * repository's own union for the same reason, and neither column is ever totalled here.
+ */
+export interface DaemonDto {
+  readonly name: string;
+  readonly versionCount: number;
+  readonly latestVersion: string;
+  readonly latestPublishedAt: string;
+  readonly sizeBytes: number;
+}
+
+export interface DaemonsResponse {
+  readonly daemons: readonly DaemonDto[];
+}
+
+/**
+ * One published version of one daemon.
+ *
+ * `digest` is the wire spelling `sha256:<hex>` — the exact string the download echoes as
+ * `Docker-Content-Digest` and the exact string a deployment pins. Shortening it for a table cell is
+ * a rendering decision; the value carried here is never anything but what the wire uttered.
+ *
+ * `sizeBytes` is the row's own and not a union: a daemon version **is** one blob, so there is
+ * nothing at this level to double-count. It is still not summed, because the level above it is a
+ * union and a column that adds up under a headline that does not is the confusion this whole file
+ * exists to prevent.
+ */
+export interface DaemonVersionDto {
+  readonly version: string;
+  readonly digest: string;
+  readonly sizeBytes: number;
+  readonly publishedAt: string;
+  /** Null until the version-addressed download has served these bytes — never, not zero. */
+  readonly accessedAt: string | null;
+}
+
+export interface DaemonVersionsResponse {
+  readonly versions: readonly DaemonVersionDto[];
+}
+
+/**
+ * One documentation site of a `docs` repository, folded from its published versions.
+ *
+ * A site name may contain a slash — `@userflows/qits-artifacts` is **one** site rather than a scope
+ * and a name — which is the npm scope problem again and takes the same treatment everywhere: the
+ * API client encodes it whole, and Angular's serialiser round-trips it through the URL as `%2F`.
+ *
+ * `sizeBytes` is the **per-site union** over its distinct blobs. Docs versions share blobs heavily
+ * and by design — the fonts and the unchanged chunks of a Storybook build are byte-identical across
+ * releases and are stored once — so adding the versions' published totals overstates a site several
+ * times over.
+ */
+export interface DocsSiteDto {
+  readonly name: string;
+  readonly versionCount: number;
+  readonly latestVersion: string;
+  readonly latestPublishedAt: string;
+  readonly sizeBytes: number;
+}
+
+export interface DocsSitesResponse {
+  readonly sites: readonly DocsSiteDto[];
+}
+
+/**
+ * One published version of one documentation site — the unit that is published whole and evicted
+ * whole.
+ *
+ * `fileCount` is the number of paths this version serves, not a distinct-blob count: it answers
+ * what shape the bundle is, and a bundle that ships the same bytes at two paths really does serve
+ * two paths. `sizeBytes` is the union over the distinct blobs behind them, so the two columns
+ * deliberately do not derive from one another.
+ *
+ * `metadata` is the flat string map the publisher rode on `X-Artifacts-Meta-*` headers —
+ * `git.branch.name` and `git.commit.hash` are the two this UI reads by name. Never null: a version
+ * published without any arrives as `{}`, because "no metadata" and "metadata not read here" must
+ * not be drawn alike.
+ */
+export interface DocsVersionDto {
+  readonly version: string;
+  readonly fileCount: number;
+  readonly sizeBytes: number;
+  readonly publishedAt: string;
+  /** Null until a file of this version has been served — never, not zero. */
+  readonly accessedAt: string | null;
+  readonly metadata: Readonly<Record<string, string>>;
+}
+
+export interface DocsVersionsResponse {
+  readonly versions: readonly DocsVersionDto[];
+}
 
 /**
  * The honesty panel's numbers, and the reason it exists: these five figures describe one store

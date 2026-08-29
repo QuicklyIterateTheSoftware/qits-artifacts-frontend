@@ -1,0 +1,77 @@
+<nav class="crumbs" aria-label="Breadcrumb">
+  <a [routerLink]="links.commands()">Artifacts</a><span class="sep" aria-hidden="true">/</span
+  ><a [routerLink]="links.commands('repositories', repoName())">{{ repoName() }}</a
+  ><span class="sep" aria-hidden="true">/</span><span>{{ daemonName() }}</span>
+</nav>
+
+<header class="head">
+  <div>
+    <h1>{{ daemonName() }}</h1>
+    <p class="lede">{{ lede() }}</p>
+  </div>
+  <qits-button variant="secondary" size="sm" (pressed)="load()">Refresh</qits-button>
+</header>
+
+<app-async
+  [state]="versions()"
+  loadingLabel="Loading the versions"
+  errorLabel="Could not load the versions"
+  (retry)="load()"
+/>
+
+@if (versions().kind === 'ready') {
+  <div class="scroll">
+    <table>
+      <caption>
+        Each size is that version's own single blob. Nothing here double-counts — a daemon version
+        <em>is</em> one blob — and the column is still not totalled: the figure on the repository
+        listing is the union over this daemon, which is smaller wherever two versions were built
+        from identical bytes.
+      </caption>
+      <thead>
+        <tr>
+          <th scope="col">Version</th>
+          <th scope="col" class="num">Size</th>
+          <th scope="col">Digest</th>
+          <th scope="col">Published</th>
+          <th scope="col">Last accessed</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (version of rows(); track version.version) {
+          <tr>
+            <th scope="row" class="mono">
+              <a [href]="downloadHref(version)">{{ version.version }}</a>
+            </th>
+            <td class="num">{{ formatBytes(version.sizeBytes) }}</td>
+            <td class="mono subtle" [title]="version.digest">{{ shortDigest(version.digest) }}</td>
+            <td class="subtle">{{ formatInstant(version.publishedAt) }}</td>
+            <td class="subtle">
+              {{ version.accessedAt ? formatInstant(version.accessedAt) : 'Never' }}
+            </td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="5">
+              <app-empty
+                message="This daemon has no published versions in this repository. That is not the same as the daemon being unknown — a name nothing was ever published under answers the same way."
+              />
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+
+  <p class="note">
+    A version links to its own download — the version-addressed <code>GET</code> a bootstrap makes,
+    on the daemon wire, which carries no repository segment. The digest beside it is the exact
+    <code>sha256:</code> string that download echoes back and the exact string a deployment pins;
+    hover it for the whole value.
+  </p>
+
+  <p class="note">
+    “Never” is the version-addressed read only. The digest-addressed blob route deliberately does
+    not move that timestamp, so a version pulled by digest alone still reads as never accessed.
+  </p>
+}

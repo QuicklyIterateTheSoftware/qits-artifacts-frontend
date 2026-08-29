@@ -70,6 +70,16 @@ describe('the small conversions', () => {
     expect(itemNoun('oci-images')).toBe('image');
     expect(itemNoun('npm-packages')).toBe('package');
     expect(itemNoun('ci-screenshots')).toBe('record');
+    expect(itemNoun('maven-packages')).toBe('file');
+    expect(itemNoun('daemon-binaries')).toBe('version');
+  });
+
+  // A docs repository counts published VERSIONS — not the sites above them and not the fifty-odd
+  // files below. Falling through to `record` was the visible half of a union that had gone stale.
+  it('counts a docs repository in versions, not sites and not files', () => {
+    expect(itemNoun('docs')).toBe('version');
+    expect(itemNoun('docs')).not.toBe('record');
+    expect(plural(2, itemNoun('docs'))).toBe('2 versions');
   });
 
   it('renders every timestamp in UTC, and an absent one as an em dash', () => {

@@ -7,6 +7,14 @@ import type {
   ArtifactRecordDto,
   ArtifactRecordsResponse,
   ArtifactFilters,
+  DaemonDto,
+  DaemonsResponse,
+  DaemonVersionDto,
+  DaemonVersionsResponse,
+  DocsSiteDto,
+  DocsSitesResponse,
+  DocsVersionDto,
+  DocsVersionsResponse,
   GcRepositoriesPlanResponse,
   GcRepositoryPlanReportDto,
   GcRepositorySweepReportDto,
@@ -173,6 +181,57 @@ export class ArtifactsApi {
       `${this.base}/artifacts/api/repositories/${encodeURIComponent(repository)}` +
         `/maven-packages/${encodeURIComponent(coordinate)}/versions`,
     ));
+    return response.versions;
+  }
+
+  /**
+   * The daemons of a `daemon-binaries` repository.
+   *
+   * **The wire below this has no enumeration at all.** `/artifacts/daemons` answers 404 for the
+   * bare segment and every route under it is version-addressed, so a bootstrap can fetch a binary
+   * whose coordinates it already holds and nothing can ask what exists. This is that question, and
+   * it is only askable here.
+   */
+  async daemons(repository: string): Promise<readonly DaemonDto[]> {
+    const response = await firstValueFrom(
+      this.http.get<DaemonsResponse>(
+        `${this.base}/artifacts/api/repositories/${encodeURIComponent(repository)}/daemons`,
+      ),
+    );
+    return response.daemons;
+  }
+
+  /** One daemon's versions, newest first, each with the digest a deployment would pin. */
+  async daemonVersions(repository: string, daemon: string): Promise<readonly DaemonVersionDto[]> {
+    const response = await firstValueFrom(
+      this.http.get<DaemonVersionsResponse>(
+        `${this.base}/artifacts/api/repositories/${encodeURIComponent(repository)}` +
+          `/daemons/${encodeURIComponent(daemon)}/versions`,
+      ),
+    );
+    return response.versions;
+  }
+
+  /** The documentation sites of a `docs` repository, with the per-site union the open wire
+   * catalog deliberately withholds. */
+  async docsSites(repository: string): Promise<readonly DocsSiteDto[]> {
+    const response = await firstValueFrom(
+      this.http.get<DocsSitesResponse>(
+        `${this.base}/artifacts/api/repositories/${encodeURIComponent(repository)}/docs`,
+      ),
+    );
+    return response.sites;
+  }
+
+  /** One site's versions, newest first. The site name is encoded whole — `@userflows/qits-docs`
+   * is one name with a slash in it, exactly like a scoped npm package. */
+  async docsVersions(repository: string, site: string): Promise<readonly DocsVersionDto[]> {
+    const response = await firstValueFrom(
+      this.http.get<DocsVersionsResponse>(
+        `${this.base}/artifacts/api/repositories/${encodeURIComponent(repository)}` +
+          `/docs/${encodeURIComponent(site)}/versions`,
+      ),
+    );
     return response.versions;
   }
 

@@ -109,10 +109,10 @@ export function plural(count: number, singular: string, pluralForm?: string): st
 }
 
 /**
- * What a repository of this type holds, as a word. The six archetypes count different things and
+ * What a repository of this type holds, as a word. The seven archetypes count different things and
  * a column headed "items" would hide that; `itemCount` is images here, packages there, deployed
- * files for maven, published versions for the daemons, and records for the two ci types that have
- * never held one.
+ * files for maven, published versions for the daemons and for docs, and records for the two ci
+ * types that have never held one.
  */
 export function itemNoun(type: string): string {
   switch (type) {
@@ -125,6 +125,11 @@ export function itemNoun(type: string): string {
     case 'maven-packages':
       return 'file';
     case 'daemon-binaries':
+      return 'version';
+    // A docs bundle is fifty-odd paths under one version, and the service counts the VERSIONS —
+    // not the sites above them and not the files below. Calling them files would inflate the
+    // store by the size of a Storybook build; calling them sites would deflate it by its history.
+    case 'docs':
       return 'version';
     default:
       return 'record';

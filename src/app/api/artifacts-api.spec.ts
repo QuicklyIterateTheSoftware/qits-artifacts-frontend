@@ -212,6 +212,101 @@ describe('ArtifactsApi', () => {
     await expect(versions).resolves.toMatchObject([{ tarballSizeBytes: null, publishedAt: null }]);
   });
 
+  it('unwraps the daemons of a daemon-binaries repository', async () => {
+    const daemons = api.daemons('daemons');
+    http.expectOne('/artifacts/api/repositories/daemons/daemons').flush({
+      daemons: [
+        {
+          name: 'qits-agent',
+          versionCount: 3,
+          latestVersion: '2026.828.202327',
+          latestPublishedAt: '2026-08-28T20:23:27Z',
+          sizeBytes: 41943040,
+        },
+      ],
+    });
+    await expect(daemons).resolves.toMatchObject([{ name: 'qits-agent', versionCount: 3 }]);
+  });
+
+  it('unwraps a daemon’s versions, digest in the wire spelling and all', async () => {
+    const versions = api.daemonVersions('daemons', 'qits-agent');
+    http.expectOne('/artifacts/api/repositories/daemons/daemons/qits-agent/versions').flush({
+      versions: [
+        {
+          version: '2026.828.202327',
+          digest: 'sha256:0123456789abcdef0123',
+          sizeBytes: 20971520,
+          publishedAt: '2026-08-28T20:23:27Z',
+          accessedAt: null,
+        },
+      ],
+    });
+    await expect(versions).resolves.toMatchObject([
+      { digest: 'sha256:0123456789abcdef0123', accessedAt: null },
+    ]);
+  });
+
+  it('unwraps the documentation sites, which arrive under `sites` and not `docs`', async () => {
+    const sites = api.docsSites('docs');
+    http.expectOne('/artifacts/api/repositories/docs/docs').flush({
+      sites: [
+        {
+          name: '@userflows/qits-artifacts',
+          versionCount: 2,
+          latestVersion: '2026.828.202327',
+          latestPublishedAt: '2026-08-28T20:23:27Z',
+          sizeBytes: 1048576,
+        },
+      ],
+    });
+    await expect(sites).resolves.toMatchObject([
+      { name: '@userflows/qits-artifacts', versionCount: 2 },
+    ]);
+  });
+
+  // A docs site name carries a separator that is not a path separator, exactly like an npm scope.
+  // The browse endpoint takes the encoded spelling; the docs WIRE takes only the literal one, which
+  // is why the page builds its bundle link itself rather than through this client.
+  it('encodes the separator in a multi-segment site name', async () => {
+    const versions = api.docsVersions('docs', '@userflows/qits-artifacts');
+    const request = http.expectOne(
+      '/artifacts/api/repositories/docs/docs/%40userflows%2Fqits-artifacts/versions',
+    );
+    expect(request.request.url).toContain('%2F');
+    request.flush({
+      versions: [
+        {
+          version: '2026.828.202327',
+          fileCount: 54,
+          sizeBytes: 524288,
+          publishedAt: '2026-08-28T20:23:27Z',
+          accessedAt: null,
+          metadata: { 'git.branch.name': 'main', 'git.commit.hash': '9f96484aa1c0' },
+        },
+      ],
+    });
+    await expect(versions).resolves.toMatchObject([
+      { fileCount: 54, metadata: { 'git.branch.name': 'main' } },
+    ]);
+  });
+
+  it('keeps an empty metadata map as an empty map, not as an absence', async () => {
+    const versions = api.docsVersions('docs', 'plain');
+    http.expectOne('/artifacts/api/repositories/docs/docs/plain/versions').flush({
+      versions: [
+        {
+          version: '1',
+          fileCount: 1,
+          sizeBytes: 1,
+          publishedAt: '2026-08-28T20:23:27Z',
+          accessedAt: null,
+          metadata: {},
+        },
+      ],
+    });
+    await expect(versions).resolves.toMatchObject([{ metadata: {} }]);
+  });
+
   // The one write this application makes is guarded by a static token it does not hold and must
   // not invent. The call carries no credential and the 401 reaches the caller intact.
   it('sends no token on the sweep, and surfaces the 401 that comes back', async () => {

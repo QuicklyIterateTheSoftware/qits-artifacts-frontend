@@ -31,6 +31,8 @@ describe('RepositoryPage', () => {
     repository(),
     repository({ name: 'npm', type: 'npm-packages', itemCount: 2, sizeBytes: 87040 }),
     repository({ name: 'maven', type: 'maven-packages', itemCount: 3, sizeBytes: 112640 }),
+    repository({ name: 'daemons', type: 'daemon-binaries', itemCount: 3, sizeBytes: 41943040 }),
+    repository({ name: 'docs', type: 'docs', itemCount: 2, sizeBytes: 1048576 }),
     repository({ name: 'ci-videos', type: 'ci-videos', itemCount: 0, sizeBytes: 0 }),
   ];
 
@@ -180,6 +182,128 @@ describe('RepositoryPage', () => {
     expect(text()).toContain('110 KiB');
     const link = (harness.fixture.nativeElement as HTMLElement).querySelector<HTMLAnchorElement>('tbody a');
     expect(link?.getAttribute('href')).toContain('maven-packages');
+  });
+
+  it('lists daemons, and costs one request plus one to do it', async () => {
+    await open('daemons');
+    flushStore();
+    await settle();
+    http.expectOne('/artifacts/api/repositories/daemons/daemons').flush({
+      daemons: [
+        {
+          name: 'qits-agent',
+          versionCount: 3,
+          latestVersion: '2026.828.202327',
+          latestPublishedAt: '2026-08-28T20:23:27Z',
+          sizeBytes: 41943040,
+        },
+      ],
+    });
+    await settle();
+
+    // 1 + 1: the type read, then the one listing that answer chose. Nothing per row.
+    http.verify();
+    expect(text()).toContain('qits-agent');
+    expect(text()).toContain('2026.828.202327');
+    expect(text()).toContain('40.0 MiB');
+    expect(text()).toContain('daemon-binaries');
+    expect(text()).toContain('3 versions');
+    expect(text()).toContain("The platform's own daemon executables");
+
+    const link = (harness.fixture.nativeElement as HTMLElement).querySelector<HTMLAnchorElement>(
+      'tbody a',
+    );
+    expect(link?.getAttribute('href')).toBe('/repositories/daemons/daemons/qits-agent');
+  });
+
+  it('lists documentation sites, and costs one request plus one to do it', async () => {
+    await open('docs');
+    flushStore();
+    await settle();
+    http.expectOne('/artifacts/api/repositories/docs/docs').flush({
+      sites: [
+        {
+          name: '@userflows/qits-artifacts',
+          versionCount: 2,
+          latestVersion: '2026.828.202327',
+          latestPublishedAt: '2026-08-28T20:23:27Z',
+          sizeBytes: 1048576,
+        },
+      ],
+    });
+    await settle();
+
+    http.verify();
+    expect(text()).toContain('@userflows/qits-artifacts');
+    expect(text()).toContain('1.00 MiB');
+    // The badge and the summary, both of which a stale type union silently drops.
+    expect(text()).toContain('docs');
+    expect(text()).toContain('Published documentation bundles');
+    // itemCount is published versions — not sites, not files.
+    expect(text()).toContain('2 versions');
+
+    const link = (harness.fixture.nativeElement as HTMLElement).querySelector<HTMLAnchorElement>(
+      'tbody a',
+    );
+    expect(link?.getAttribute('href')).toContain('%2F');
+    expect(link?.getAttribute('href')).toContain('/repositories/docs/docs/');
+  });
+
+  /**
+   * The regression this listing was built to end. `docs` shipped on the wire while the type union
+   * here still said six, so a repository full of published bundles fell through to the fallback and
+   * told its reader it was an empty CI shape — a sentence about the golden-diff loop, under a badge
+   * for a type that has nothing to do with it.
+   */
+  it('never tells a docs repository it is an empty CI shape', async () => {
+    await open('docs');
+    flushStore();
+    await settle();
+    http.expectOne('/artifacts/api/repositories/docs/docs').flush({ sites: [] });
+    await settle();
+
+    expect(text()).not.toContain('golden-diff loop');
+    expect(text()).not.toContain('A shape with no content');
+    expect(text()).not.toContain('screenshot records');
+    expect(text()).not.toContain('has no listing in this explorer yet');
+    // Loaded and holding nothing is still said out loud, in the listing's own words.
+    expect(text()).toContain('No documentation sites match this search.');
+  });
+
+  it('filters the daemon rows through the same search the other listings use', async () => {
+    await open('daemons');
+    flushStore();
+    await settle();
+    http.expectOne('/artifacts/api/repositories/daemons/daemons').flush({
+      daemons: [
+        {
+          name: 'qits-agent',
+          versionCount: 1,
+          latestVersion: '1',
+          latestPublishedAt: '2026-08-28T20:23:27Z',
+          sizeBytes: 1024,
+        },
+        {
+          name: 'qits-runner',
+          versionCount: 1,
+          latestVersion: '1',
+          latestPublishedAt: '2026-08-28T20:23:27Z',
+          sizeBytes: 1024,
+        },
+      ],
+    });
+    await settle();
+
+    const page = harness.fixture.nativeElement as HTMLElement;
+    const search = page.querySelector<HTMLInputElement>('input[type="search"]')!;
+    search.value = 'runner';
+    search.dispatchEvent(new Event('input'));
+    await settle();
+
+    // A client-side filter over rows already in hand — it costs no request.
+    http.verify();
+    expect(text()).toContain('qits-runner');
+    expect(text()).not.toContain('qits-agent');
   });
 
   it('reports a 400 from the images endpoint rather than showing an empty repository', async () => {

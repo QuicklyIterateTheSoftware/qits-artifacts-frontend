@@ -141,6 +141,139 @@
   </section>
 }
 
+@if (isDaemons()) {
+  <section>
+    <app-async
+      [state]="daemons()"
+      loadingLabel="Loading the daemons"
+      errorLabel="Could not load the daemons"
+      (retry)="loadDaemons()"
+    />
+
+    @if (daemons().kind === 'ready') {
+      <label class="search"
+        >Search daemons<input
+          type="search"
+          placeholder="Filter by daemon name…"
+          [value]="search()"
+          (input)="setSearch($event)"
+      /></label>
+      <div class="scroll">
+        <table>
+          <caption>
+            Each size is that daemon's own union: every distinct blob any of its versions names,
+            counted once. Two versions built from identical bytes are one blob in the store, so this
+            column is never totalled and never derived from the versions behind it.
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Daemon</th>
+              <th scope="col" class="num">Versions</th>
+              <th scope="col">Latest</th>
+              <th scope="col" class="num">Size (per-daemon union)</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (daemon of daemonRows(); track daemon.name) {
+              <tr>
+                <th scope="row">
+                  <a
+                    [routerLink]="links.commands('repositories', repoName(), 'daemons', daemon.name)"
+                  >
+                    {{ daemon.name }}
+                  </a>
+                </th>
+                <td class="num">{{ daemon.versionCount }}</td>
+                <td class="mono">
+                  {{ daemon.latestVersion }}
+                  <span class="subtle">· {{ formatInstant(daemon.latestPublishedAt) }}</span>
+                </td>
+                <td class="num">{{ formatBytes(daemon.sizeBytes) }}</td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="4">
+                  <app-empty message="No daemons match this search." />
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <p class="note">
+        The wire under this listing has no enumeration of its own: every route below
+        <code>/artifacts/daemons</code> is version-addressed, so what exists is only askable here.
+      </p>
+    }
+  </section>
+}
+
+@if (isDocs()) {
+  <section>
+    <app-async
+      [state]="docsSites()"
+      loadingLabel="Loading the documentation sites"
+      errorLabel="Could not load the documentation sites"
+      (retry)="loadDocsSites()"
+    />
+
+    @if (docsSites().kind === 'ready') {
+      <label class="search"
+        >Search sites<input
+          type="search"
+          placeholder="Filter by site name…"
+          [value]="search()"
+          (input)="setSearch($event)"
+      /></label>
+      <div class="scroll">
+        <table>
+          <caption>
+            Each size is that site's own union over its distinct blobs. Docs versions share bytes
+            heavily and by design — the fonts and unchanged chunks of a build are byte-identical
+            across releases and stored once — so adding this column, or adding the versions behind
+            any one row, overstates the store several times over.
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Site</th>
+              <th scope="col" class="num">Versions</th>
+              <th scope="col">Latest</th>
+              <th scope="col" class="num">Published size (per-site union)</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (site of docsRows(); track site.name) {
+              <tr>
+                <th scope="row" class="mono">
+                  <a [routerLink]="links.commands('repositories', repoName(), 'docs', site.name)">
+                    {{ site.name }}
+                  </a>
+                </th>
+                <td class="num">{{ site.versionCount }}</td>
+                <td class="mono">
+                  {{ site.latestVersion }}
+                  <span class="subtle">· {{ formatInstant(site.latestPublishedAt) }}</span>
+                </td>
+                <td class="num">{{ formatBytes(site.sizeBytes) }}</td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="4">
+                  <app-empty message="No documentation sites match this search." />
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <p class="note">
+        A site name may contain a slash — <code>&#64;userflows/qits-artifacts</code> is one site, not
+        a scope and a name.
+      </p>
+    }
+  </section>
+}
+
 @if (isCi()) {
   <section>
     <form class="filters" (ngSubmit)="loadRecords()">
@@ -235,5 +368,5 @@
 }
 
 @if (hasNoListing()) {
-  <app-empty [message]="emptyTypeMessage()" />
+  <app-empty message="This repository's type has no listing in this explorer yet." />
 }

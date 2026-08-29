@@ -15,6 +15,8 @@ import type {
   ArtifactFilters,
   ArtifactRecordDto,
   ArtifactRepositoryDto,
+  DaemonDto,
+  DocsSiteDto,
   NpmPackageDto,
   MavenPackageDto,
   OciImageDto,
@@ -34,22 +36,29 @@ import { ArtifactsLinks } from '../ui/links';
  *
  * - `GET /artifacts/api/repositories` — the only way to learn a repository's type; there is no
  *   endpoint that describes one on its own.
- * - then exactly one of `…/images` or `…/packages`, or **none at all** for the two ci types, which
- *   have no listing endpoint because they have never held a row.
+ * - then exactly one of `…/images`, `…/packages`, `…/maven-packages`, `…/daemons`, `…/docs` or
+ *   `…/blobs` — one listing per type, chosen by that answer, and **none at all** for a type this
+ *   explorer has no listing for yet.
  *
- * So the variable term is 0 or 1 and never more, and a `ci-screenshots` page costs one request in
- * total. The listing's rows carry their own counts and sizes, so nothing fans out per row here
- * either.
+ * So the variable term is 0 or 1 and never more, and a page for a type with no listing costs one
+ * request in total. The listing's rows carry their own counts and sizes, so nothing fans out per
+ * row here either.
  *
  * The type read is repeated on every page of this app rather than cached in a service. That is a
  * deliberate trade: a cache would need an invalidation story for a store this UI cannot write to
- * anyway, and the read is one flat list of five rows. Reloading a page is how you refresh it.
+ * anyway, and the read is one flat list of a handful of rows. Reloading a page is how you refresh
+ * it.
  *
  * **The ci types are drawn, not hidden.** A repository that exists and holds nothing is a fact
  * about this platform — the golden-diff loop these two were built for has never produced a single
- * record — and a UI that skipped them would be quietly claiming the store has three repositories.
- * The empty state says which of the two it is.
+ * record — and a UI that skipped them would be quietly claiming the store is smaller than it is.
+ * They get the record table, which draws its own empty state.
  *
+ * **The fallback below them says nothing about content.** It used to be a sentence about that
+ * golden-diff loop, and every type this file had not learned yet — `daemon-binaries` first, then
+ * `docs` — inherited it: a repository full of published bundles told the reader it was an empty CI
+ * shape. A fallback is reached precisely when this page does not know what a type holds, so the
+ * only honest thing it can say is that it does not know.
  */
 @Component({
   selector: 'app-repository-page',
@@ -86,6 +95,13 @@ export class RepositoryPage {
   /** Idle until the type says this repository has packages. */
   protected readonly packages = signal<Loadable<readonly NpmPackageDto[]>>(IDLE);
   protected readonly mavenPackages = signal<Loadable<readonly MavenPackageDto[]>>(IDLE);
+
+  /** Idle until the type says this repository has daemons. */
+  protected readonly daemons = signal<Loadable<readonly DaemonDto[]>>(IDLE);
+
+  /** Idle until the type says this repository has documentation sites. */
+  protected readonly docsSites = signal<Loadable<readonly DocsSiteDto[]>>(IDLE);
+
   protected readonly search = signal('');
 
   /** Directly uploaded CI records; idle for protocol repositories. */
@@ -116,14 +132,24 @@ export class RepositoryPage {
   protected readonly isOci = computed(() => isOci(this.repository()?.type ?? ''));
   protected readonly isNpm = computed(() => isNpm(this.repository()?.type ?? ''));
   protected readonly isMaven = computed(() => this.repository()?.type === 'maven-packages');
+  protected readonly isDaemons = computed(() => this.repository()?.type === 'daemon-binaries');
+  protected readonly isDocs = computed(() => this.repository()?.type === 'docs');
   protected readonly isCi = computed(() => {
     const type = this.repository()?.type;
     return type === 'ci-screenshots' || type === 'ci-videos';
   });
 
-  /** True for the two types that have no listing endpoint at all. */
+  /** True for a type this explorer has no listing for — none, today, and the fallback says so
+   * without guessing at what such a repository would hold. */
   protected readonly hasNoListing = computed(
-    () => this.repository() !== null && !this.isOci() && !this.isNpm() && !this.isMaven() && !this.isCi(),
+    () =>
+      this.repository() !== null &&
+      !this.isOci() &&
+      !this.isNpm() &&
+      !this.isMaven() &&
+      !this.isDaemons() &&
+      !this.isDocs() &&
+      !this.isCi(),
   );
 
   protected readonly imageRows = computed(() => {
@@ -137,6 +163,14 @@ export class RepositoryPage {
   });
   protected readonly mavenRows = computed(() => {
     const state = this.mavenPackages();
+    return state.kind === 'ready' ? this.filtered(state.value) : [];
+  });
+  protected readonly daemonRows = computed(() => {
+    const state = this.daemons();
+    return state.kind === 'ready' ? this.filtered(state.value) : [];
+  });
+  protected readonly docsRows = computed(() => {
+    const state = this.docsSites();
     return state.kind === 'ready' ? this.filtered(state.value) : [];
   });
 
@@ -171,6 +205,8 @@ export class RepositoryPage {
     this.images.set(IDLE);
     this.packages.set(IDLE);
     this.mavenPackages.set(IDLE);
+    this.daemons.set(IDLE);
+    this.docsSites.set(IDLE);
     this.records.set(IDLE);
     this.repositories.set(LOADING);
     try {
@@ -183,6 +219,10 @@ export class RepositoryPage {
         await this.loadPackages();
       } else if (repository?.type === 'maven-packages') {
         await this.loadMavenPackages();
+      } else if (repository?.type === 'daemon-binaries') {
+        await this.loadDaemons();
+      } else if (repository?.type === 'docs') {
+        await this.loadDocsSites();
       } else if (
         repository &&
         (repository.type === 'ci-screenshots' || repository.type === 'ci-videos')
@@ -216,6 +256,24 @@ export class RepositoryPage {
     this.mavenPackages.set(LOADING);
     try { this.mavenPackages.set(ready(await this.api.mavenPackages(this.repoName()))); }
     catch (error) { this.mavenPackages.set(failed(error)); }
+  }
+
+  protected async loadDaemons(): Promise<void> {
+    this.daemons.set(LOADING);
+    try {
+      this.daemons.set(ready(await this.api.daemons(this.repoName())));
+    } catch (error) {
+      this.daemons.set(failed(error));
+    }
+  }
+
+  protected async loadDocsSites(): Promise<void> {
+    this.docsSites.set(LOADING);
+    try {
+      this.docsSites.set(ready(await this.api.docsSites(this.repoName())));
+    } catch (error) {
+      this.docsSites.set(failed(error));
+    }
   }
 
   protected setSearch(event: Event): void { this.search.set((event.target as HTMLInputElement).value); }
@@ -266,16 +324,6 @@ export class RepositoryPage {
   protected imageMeta(image: OciImageDto): string {
     return `${plural(image.tagCount, 'tag')} · ${plural(image.manifestCount, 'manifest')}`;
   }
-
-  /** The sentence for a type that has a shape and no content. */
-  protected readonly emptyTypeMessage = computed(() => {
-    const type = this.repository()?.type;
-    const what = type === 'ci-videos' ? 'video' : 'screenshot';
-    return (
-      `A shape with no content: this repository holds no ${what} records at all. ` +
-      'It was built for the CI golden-diff loop, and that loop has never produced anything.'
-    );
-  });
 }
 
 /** The controls are explicitly UTC, so a browser's locale never changes the query instant. */

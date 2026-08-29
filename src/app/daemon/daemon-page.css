@@ -1,0 +1,10 @@
+/* The digest column is shortened rather than wrapped: a broken `sha256:` string cannot be matched
+   against a pin by eye, which is the only thing anybody reads it for. The table scrolls instead. */
+caption,
+.note {
+  max-width: 70ch;
+}
+
+th[scope='row'] {
+  padding-right: 1.25rem;
+}
