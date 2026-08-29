@@ -4,6 +4,8 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { routes } from './app.routes';
 import { CleanupPage } from './cleanup/cleanup-page';
+import { DaemonPage } from './daemon/daemon-page';
+import { DocsPage } from './docs/docs-page';
 import { ImagePage } from './image/image-page';
 import { NotFound } from './not-found/not-found';
 import { RepositoriesPage } from './repositories/repositories-page';
@@ -47,6 +49,16 @@ describe('app routes', () => {
 
     expect(await resolve('/repositories/qits/cleanup')).toBe(CleanupPage);
     expect(await resolve('/qits/libs/qits-blobstore/repositories/qits/cleanup')).toBe(CleanupPage);
+
+    expect(await resolve('/repositories/daemons/daemons/qits-agent')).toBe(DaemonPage);
+    expect(await resolve('/qits/services/qits-artifacts/repositories/daemons/daemons/qits-agent')).toBe(
+      DaemonPage,
+    );
+
+    expect(await resolve('/repositories/docs/docs/%40userflows%2Fqits-artifacts')).toBe(DocsPage);
+    expect(
+      await resolve('/qits/services/qits-artifacts/repositories/docs/docs/%40userflows%2Fqits-artifacts'),
+    ).toBe(DocsPage);
   });
 
   it('serves every own page under a project as well', async () => {
@@ -55,6 +67,25 @@ describe('app routes', () => {
     expect(await resolve('/qits/repositories/qits')).toBe(RepositoryPage);
     expect(await resolve('/qits/repositories/qits/cleanup')).toBe(CleanupPage);
     expect(await resolve('/qits/repositories/qits/images/qits%2Fbase')).toBe(ImagePage);
+    expect(await resolve('/qits/repositories/daemons/daemons/qits-agent')).toBe(DaemonPage);
+    expect(await resolve('/qits/repositories/docs/docs/%40userflows%2Fqits-artifacts')).toBe(
+      DocsPage,
+    );
+  });
+
+  /**
+   * The site name survives the round trip as ONE parameter, separator included. A route that let
+   * `%2F` split into two segments would resolve to the 404 page here and — worse — would reach the
+   * component with half a name if it did not.
+   */
+  it('carries a multi-segment docs site name through as a single parameter', async () => {
+    const router = TestBed.inject(Router);
+    await router.navigateByUrl('/repositories/docs/docs/%40userflows%2Fqits-artifacts');
+    let node = router.routerState.snapshot.root;
+    while (node.firstChild) node = node.firstChild;
+    expect(node.component).toBe(DocsPage);
+    expect(node.paramMap.get('site')).toBe('@userflows/qits-artifacts');
+    expect(node.paramMap.get('repo')).toBe('docs');
   });
 
   /**

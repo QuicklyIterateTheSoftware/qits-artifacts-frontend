@@ -1,0 +1,31 @@
+/* A site name carries a scope and a slash, so the heading is allowed to break anywhere rather than
+   pushing the refresh button off the row. */
+.head h1 {
+  overflow-wrap: anywhere;
+}
+
+caption,
+.note {
+  max-width: 70ch;
+}
+
+/* The one link on the page that leaves the application, and the reason the page exists — given the
+   weight of a button so it is findable in a row of seven columns. */
+.open {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border: 1px solid #c7d2fe;
+  border-radius: 0.25rem;
+  background: #eef2ff;
+  color: #3730a3;
+  text-decoration: none;
+}
+
+.open:hover {
+  background: #e0e7ff;
+}
+
+.open:focus-visible {
+  outline: 2px solid #4f46e5;
+  outline-offset: 1px;
+}

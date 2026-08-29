@@ -1,0 +1,88 @@
+<nav class="crumbs" aria-label="Breadcrumb">
+  <a [routerLink]="links.commands()">Artifacts</a><span class="sep" aria-hidden="true">/</span
+  ><a [routerLink]="links.commands('repositories', repoName())">{{ repoName() }}</a
+  ><span class="sep" aria-hidden="true">/</span><span>{{ site() }}</span>
+</nav>
+
+<header class="head">
+  <div>
+    <h1>{{ site() }}</h1>
+    <p class="lede">{{ lede() }}</p>
+  </div>
+  <qits-button variant="secondary" size="sm" (pressed)="load()">Refresh</qits-button>
+</header>
+
+<app-async
+  [state]="versions()"
+  loadingLabel="Loading the versions"
+  errorLabel="Could not load the versions"
+  (retry)="load()"
+/>
+
+@if (versions().kind === 'ready') {
+  <div class="scroll">
+    <table>
+      <caption>
+        Files counts the paths a version serves; the size is the union over the distinct blobs
+        behind them, so a bundle shipping the same bytes at two paths is two files and one blob's
+        worth of disk. Neither column is totalled — versions of a site share their fonts and their
+        unchanged chunks, and the figure on the repository listing is the union over all of them.
+      </caption>
+      <thead>
+        <tr>
+          <th scope="col">Version</th>
+          <th scope="col" class="num">Files</th>
+          <th scope="col" class="num">Size</th>
+          <th scope="col">Published</th>
+          <th scope="col">Last accessed</th>
+          <th scope="col">Branch / commit</th>
+          <th scope="col">Bundle</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (version of rows(); track version.version) {
+          <tr>
+            <th scope="row" class="mono">{{ version.version }}</th>
+            <td class="num">{{ version.fileCount }}</td>
+            <td class="num">{{ formatBytes(version.sizeBytes) }}</td>
+            <td class="subtle">{{ formatInstant(version.publishedAt) }}</td>
+            <td class="subtle">
+              {{ version.accessedAt ? formatInstant(version.accessedAt) : 'Never' }}
+            </td>
+            <td class="mono subtle">{{ branch(version) }} · {{ commit(version) }}</td>
+            <td>
+              <a
+                class="open"
+                [href]="openHref(version)"
+                [attr.aria-label]="openLabel(version)"
+                data-testid="open-bundle"
+              >
+                Open
+              </a>
+            </td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="7">
+              <app-empty
+                message="This site has no published versions in this repository. That is not the same as the site being unknown — a name nothing was ever published under answers the same way."
+              />
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+
+  <p class="note">
+    “Open” goes to that version's <code>index.html</code> on the docs wire. A version is published
+    whole and evicted whole, and it is immutable — so a bundle URL never changes meaning under a
+    reader: it serves the same bytes it did the day it was published, or it is gone and answers 404.
+  </p>
+
+  <p class="note">
+    Branch and commit are what the publisher declared on the upload, not something this store
+    verified. They are printed for you to match against a build and are deliberately not links: no
+    row in this store records a commit, a run or a project.
+  </p>
+}

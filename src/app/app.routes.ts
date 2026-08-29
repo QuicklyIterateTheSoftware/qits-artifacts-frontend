@@ -1,6 +1,8 @@
 import type { CanMatchFn, Routes, UrlSegment } from '@angular/router';
 import { QitsMainLayout, QITS_CATEGORIES, type QitsCategory } from '@qits/ui-components';
 import { CleanupPage } from './cleanup/cleanup-page';
+import { DaemonPage } from './daemon/daemon-page';
+import { DocsPage } from './docs/docs-page';
 import { ImagePage } from './image/image-page';
 import { NotFound } from './not-found/not-found';
 import { PackagePage } from './package/package-page';
@@ -9,7 +11,7 @@ import { RepositoriesPage } from './repositories/repositories-page';
 import { RepositoryPage } from './repository/repository-page';
 
 /**
- * Five pages, all of them inside the platform chrome, and the drill-down is **repository-first**.
+ * Eight pages, all of them inside the platform chrome, and the drill-down is **repository-first**.
  *
  * `QitsMainLayout` is the root *route* component rather than something the shell templates, so the
  * bar and the navigation mount once and survive every navigation beneath them.
@@ -30,7 +32,9 @@ import { RepositoryPage } from './repository/repository-page';
  *
  * **The npm package segment carries a scope.** `@qits/ui-components` has a slash in it that is not
  * a separator; Angular's serialiser encodes it to `%2F` when a `routerLink` builds the URL and
- * decodes it back on the way in, so the segment survives the round trip intact.
+ * decodes it back on the way in, so the segment survives the round trip intact. A maven coordinate
+ * and a docs site name — `@userflows/qits-artifacts` — ride the same round trip for the same
+ * reason, which is why all three are one `:param` rather than a wildcard.
  *
  * **`repositories/:repo/cleanup` is a segment because it is a place, not a panel.** It costs a
  * request, which is the rule above — but it earns the path for a second reason the other levels do
@@ -38,8 +42,8 @@ import { RepositoryPage } from './repository/repository-page';
  * modal over a table is a review with no address. As a route it is bookmarkable, it survives a
  * reload, and the back button leaves it rather than half-dismissing it.
  *
- * All five pages load eagerly. There are five of them, they share every component below them, and a
- * lazy chunk boundary would be ceremony that costs a round trip.
+ * All eight pages load eagerly. There are eight of them, they share every component below them, and
+ * a lazy chunk boundary would be ceremony that costs a round trip.
  *
  * The `**` route sits inside the layout: this application owns the whole of its own host, so an
  * unknown URL is an ordinary 404 and is drawn with the chrome around it.
@@ -51,6 +55,8 @@ const OWN: Routes = [
   { path: 'repositories/:repo/images/:image', component: ImagePage },
   { path: 'repositories/:repo/packages/:package', component: PackagePage },
   { path: 'repositories/:repo/maven-packages/:coordinate', component: MavenPage },
+  { path: 'repositories/:repo/daemons/:daemon', component: DaemonPage },
+  { path: 'repositories/:repo/docs/:site', component: DocsPage },
 ];
 
 /**

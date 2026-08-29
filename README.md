@@ -2,18 +2,24 @@
 
 The artifact explorer: what this platform stores, what it costs, and — one repository at a time,
 behind a plan — what it could stop storing. Served by qits-artifacts itself at the **root of its own
-host** (`registry.<env>.<domain>`) through Quinoa. Five pages, and almost all of it is read.
+host** (`registry.<env>.<domain>`) through Quinoa. Eight pages, and almost all of it is read.
 
 - **`/`** — every repository, with its type, how many things it holds, its own byte union and what
   cleaning it up would free, beside a store-level summary panel. Three requests, and none per
   repository.
 - **`/repositories/<repo>`** — one repository, drawn as whatever its type holds: images, packages,
-  or an honest empty state for the two CI types that have never held a row.
+  Maven coordinates, daemons, documentation sites, or the CI record table.
 - **`/repositories/<repo>/cleanup`** — what collecting that repository would delete, what it would
   keep and why each, and the one press in this application that deletes bytes.
 - **`/repositories/<repo>/images/<image>`** — an image's tags and the manifest each points at, led
   by the per-image union.
 - **`/repositories/<repo>/packages/<package>`** — a package's versions.
+- **`/repositories/<repo>/maven-packages/<coordinate>`** — a coordinate's versions and the files
+  each deploys.
+- **`/repositories/<repo>/daemons/<daemon>`** — a daemon's published versions, each linked to its
+  own version-addressed download, with the `sha256:` digest a deployment pins.
+- **`/repositories/<repo>/docs/<site>`** — a documentation site's published versions, each with the
+  branch and commit its publisher declared and a link that opens the bundle itself.
 
 **Every one of them is addressable twice.** The platform's URL grammar puts the same page under
 `/<projectSlug>/<category>/<repoName>/…`, and the scoped form resolves to the same component:
