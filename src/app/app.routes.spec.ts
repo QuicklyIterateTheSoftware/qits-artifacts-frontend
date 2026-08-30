@@ -98,9 +98,26 @@ describe('app routes', () => {
     expect(await resolve('/repositories/npm/cleanup')).toBe(CleanupPage);
   });
 
-  /** A second segment that is not a category is not a scope, so the 404 page takes it. */
-  it('does not read an arbitrary three-segment path as a scope', async () => {
-    expect(await resolve('/qits/nonsense/qits-ci')).toBe(NotFound);
+  /**
+   * The middle segment is the repository's group, and a component is an open set: any segment the
+   * platform can name has to resolve, because no list has answered when a deep link is opened.
+   */
+  it('serves every own page under a repository addressed by its component', async () => {
+    expect(await resolve('/qits/qits-artifacts/qits-artifacts-service')).toBe(RepositoriesPage);
+    expect(await resolve('/qits/qits-artifacts/qits-artifacts-service/repositories/npm')).toBe(
+      RepositoryPage,
+    );
+    expect(
+      await resolve('/qits/qits-ci/qits-ci-service/repositories/qits/images/qits%2Fbase'),
+    ).toBe(ImagePage);
+  });
+
+  /** A group is never one of this app's own first segments, and a project is never a category. */
+  it('does not read this app own segments as a scope', async () => {
+    // `repositories` in the middle is this app's page under a project, not a group.
+    expect(await resolve('/qits/repositories/npm')).toBe(RepositoryPage);
+    // A category in segment one is no project, and the rest matches no page of ours.
+    expect(await resolve('/services/qits-ci/repositories')).toBe(NotFound);
     expect(await resolve('/nothing/here/at/all')).toBe(NotFound);
   });
 });
