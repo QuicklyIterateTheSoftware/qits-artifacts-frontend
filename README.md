@@ -1,4 +1,4 @@
-# QitsPlatformSpaArtifacts
+# qits-artifacts-frontend
 
 The artifact explorer: what this platform stores, what it costs, and — one repository at a time,
 behind a plan — what it could stop storing. Served by qits-artifacts itself at the **root of its own
