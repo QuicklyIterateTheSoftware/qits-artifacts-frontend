@@ -74,6 +74,26 @@ describe('ArtifactsLinks', () => {
     ]);
   });
 
+  /** The same prefix from a scope the chrome read in the component form: one segment either way. */
+  it('prefixes its own pages with a component scope just as well', () => {
+    const component: QitsScope = {
+      project: 'qits',
+      group: 'qits-ci',
+      repository: 'qits-ci-service',
+    };
+    expect(links(component, 'hosted').commands('repositories', 'qits')).toEqual([
+      '/',
+      'qits',
+      'qits-ci',
+      'qits-ci-service',
+      'repositories',
+      'qits',
+    ]);
+    expect(links(component, 'hosted').ciExplorer('qits/qits-ci')).toBe(
+      'https://ci.dev.example.com/qits/qits-ci/qits-ci-service/',
+    );
+  });
+
   it('leaves an unscoped address at the root', () => {
     expect(links({}, 'hosted').commands('repositories', 'qits')).toEqual([
       '/',

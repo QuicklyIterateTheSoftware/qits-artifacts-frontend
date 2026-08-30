@@ -59,16 +59,34 @@ const OWN: Routes = [
   { path: 'repositories/:repo/docs/:site', component: DocsPage },
 ];
 
+/** The first segments this application's own routes spell, which no project and no group can be. */
+const OWN_SEGMENTS: ReadonlySet<string> = new Set(
+  OWN.map((route) => (route.path ?? '').split('/')[0]).filter((segment) => segment.length > 0),
+);
+
 /**
- * Whether the address is really `/<slug>/<category>/<repo>/…` and not a page of this app's own.
+ * Whether the address is really `/<slug>/<group>/<repo>/…` and not a page of this app's own.
  *
- * The second segment is the discriminator, because it is the only one whose vocabulary is closed:
- * a project slug can be anything, a repository name can be anything, and `services` is a category
- * on this platform and nothing else. qits-projects refuses a slug that spells a category or a
- * routed segment, so the two vocabularies cannot collide from the other side either.
+ * The middle segment is the repository's **group** — its component where the platform gives it one,
+ * its archetype category where it does not. Components are an **open** set that only the platform
+ * knows, so this cannot be a membership test any more: a reader landing on a deep link has no
+ * repository list yet, and a guard that waited for one would 404 the address it was asked about.
+ * The vocabulary that is still closed is this application's own, so that is what decides —
+ * `/qits/repositories/npm` is this app's page under a project, and three segments that spell none
+ * of ours are a repository address.
+ *
+ * A first segment of ours is never a project, and neither is a category: that is the same rule
+ * `parseScope` applies, so `/services` stays this app's own page. qits-projects refuses a slug that
+ * spells a category or a routed segment, so the vocabularies cannot collide from the other side
+ * either — and the chrome settles an unknown group as the project alone rather than as a 404.
  */
-export const categoryIsKnown: CanMatchFn = (_route, segments: UrlSegment[]) =>
-  QITS_CATEGORIES.includes(segments[1]?.path as QitsCategory);
+export const isRepositoryAddress: CanMatchFn = (_route, segments: UrlSegment[]) => {
+  const project = segments[0]?.path;
+  const group = segments[1]?.path;
+  if (!project || !group) return false;
+  if (OWN_SEGMENTS.has(project) || QITS_CATEGORIES.includes(project as QitsCategory)) return false;
+  return !OWN_SEGMENTS.has(group);
+};
 
 /**
  * Every page above is addressable THREE TIMES — at its own path, under a project, and under the
@@ -77,11 +95,11 @@ export const categoryIsKnown: CanMatchFn = (_route, segments: UrlSegment[]) =>
  * The project form is what the chrome's project picker navigates to: `UrlScope.select(slug)` goes
  * to `/<slug>/`, and without this route that pick would land on the 404 page.
  *
- * Order is the whole grammar, and it works because the three vocabularies cannot collide: a
- * category is never a slug, and a slug is never one of this app's own first segments. OWN routes
- * come first, so `/repositories/npm` is this app's listing and never a project called
- * `repositories`; the repository form follows, guarded on the category; the project form takes what
- * is left; and `**` closes the list.
+ * Order is the whole grammar, and it works because the three vocabularies cannot collide: a group
+ * is never a slug, and neither is ever one of this app's own first segments. OWN routes come first,
+ * so `/repositories/npm` is this app's listing and never a project called `repositories`; the
+ * repository form follows, guarded on the group; the project form takes what is left; and `**`
+ * closes the list.
  *
  * The pages read `inject(QITS_SCOPE).scope()` rather than these three params. A page that read them
  * would work in one spelling and be blank in the others.
@@ -92,7 +110,7 @@ export const routes: Routes = [
     component: QitsMainLayout,
     children: [
       ...OWN,
-      { path: ':project/:category/:repository', canMatch: [categoryIsKnown], children: OWN },
+      { path: ':project/:group/:repository', canMatch: [isRepositoryAddress], children: OWN },
       { path: ':project', children: OWN },
       { path: '**', component: NotFound },
     ],

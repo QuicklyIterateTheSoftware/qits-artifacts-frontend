@@ -24,10 +24,10 @@ import { routes } from './app.routes';
  *   was, from one `GET /projects/api/projects`. Every resource on this platform belongs to a
  *   project, so which one is open is the outermost fact about a page rather than a filter inside
  *   one of them — above the links, because it scopes them. It also installs the repositories of
- *   whatever project is in scope, which the sidebar draws under each category.
+ *   whatever project is in scope, which the sidebar draws under each group.
  * - `provideQitsScope('repository')` says how deep this application's own addresses go. Everything
  *   stored here is published by one repository, so every page is addressable under
- *   `/<slug>/<category>/<repo>/` as well as at its own path, and the pages read the scope rather
+ *   `/<slug>/<group>/<repo>/` as well as at its own path, and the pages read the scope rather
  *   than those route params.
  */
 export const appConfig: ApplicationConfig = {

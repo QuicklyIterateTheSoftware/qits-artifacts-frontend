@@ -22,8 +22,10 @@ host** (`registry.<env>.<domain>`) through Quinoa. Eight pages, and almost all o
   branch and commit its publisher declared and a link that opens the bundle itself.
 
 **Every one of them is addressable twice.** The platform's URL grammar puts the same page under
-`/<projectSlug>/<category>/<repoName>/…`, and the scoped form resolves to the same component:
-`app.routes.ts` mounts one list of children under both, guarded on the category. With a repository
+`/<projectSlug>/<group>/<repoName>/…` — the middle segment being the repository's component where
+the platform gives it one and its archetype category where it does not — and the scoped form
+resolves to the same component: `app.routes.ts` mounts one list of children under both, guarded on
+the group. With a repository
 in scope the front page leads with the image that repository publishes — `qits/<repoName>`, found
 by filtering every registry in the store — above the whole-store table, and says plainly that the
 name is a convention rather than a key.
