@@ -2,7 +2,7 @@ import type { QitsBadgeTone } from '@qits/ui-components';
 import type { RepositoryTypeSlug } from '../api/dto';
 
 /**
- * What the seven archetypes are, said in the UI's words.
+ * What the eight archetypes are, said in the UI's words.
  *
  * Tones are semantic and deliberately quiet. Nothing on this page is a status: a `ci-screenshots`
  * repository with no rows is not *failing*, it is a shape the golden-diff loop has never filled, so
@@ -18,6 +18,7 @@ export function typeTone(type: RepositoryTypeSlug | string): QitsBadgeTone {
     case 'oci-images':
     case 'daemon-binaries':
     case 'docs':
+    case 'sboms':
       return 'info';
     case 'npm-packages':
     case 'maven-packages':
@@ -44,6 +45,8 @@ export function typeSummary(type: RepositoryTypeSlug | string): string {
       return "The platform's own daemon executables, downloaded and run by the services that launch them. Versions are immutable, and a pin a bootstrap re-reads is what resolves one.";
     case 'docs':
       return 'Published documentation bundles — a version is a set of files, published whole and evicted whole. Versions are immutable, so a bundle URL never changes meaning.';
+    case 'sboms':
+      return 'One CycloneDX bill of materials per released artifact, published by the release pipeline before the run goes green and read by qits-platform-maintenance. First write wins; a document never changes.';
     default:
       return '';
   }

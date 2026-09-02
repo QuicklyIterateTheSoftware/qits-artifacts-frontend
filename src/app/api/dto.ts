@@ -36,7 +36,8 @@ export type RepositoryTypeSlug =
   | 'npm-packages'
   | 'maven-packages'
   | 'daemon-binaries'
-  | 'docs';
+  | 'docs'
+  | 'sboms';
 
 /**
  * One repository of the store.

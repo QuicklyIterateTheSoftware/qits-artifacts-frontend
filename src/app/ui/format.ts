@@ -131,6 +131,10 @@ export function itemNoun(type: string): string {
     // store by the size of a Storybook build; calling them sites would deflate it by its history.
     case 'docs':
       return 'version';
+    // One CycloneDX document per released artifact version — the count is documents, which for
+    // this type happens to equal versions, and 'document' is the word the store's own API uses.
+    case 'sboms':
+      return 'document';
     default:
       return 'record';
   }
