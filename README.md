@@ -104,7 +104,9 @@ methods only.
 npm run lint && npm test && npm run build
 ```
 
-The same three, in the same order, are what `.config/qits/ci-post-receive.yml` runs on every push.
+The same three, in the same order, are what `.config/qits/ci-event-release-request.yml` runs — once
+per release request, on the folded `release/<id>` branch, with its verdict gating the release.
+Nothing builds on a push any more.
 Note what that pipeline installs from: the npm registry behind it **is** qits-platform-artifacts, so
 a run here cannot be green while that service is down. Its deploy is taken alone, with the CI queue
 empty.
