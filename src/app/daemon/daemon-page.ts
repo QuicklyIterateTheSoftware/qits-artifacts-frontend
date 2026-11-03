@@ -9,6 +9,7 @@ import {
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink, convertToParamMap } from '@angular/router';
 import { QitsButton } from '@qits/ui-components';
+import { QitsBearerFetch } from '@qits/angular';
 import { ArtifactsApi } from '../api/artifacts-api';
 import type { DaemonVersionDto } from '../api/dto';
 import { Async } from '../ui/async';
@@ -29,10 +30,12 @@ import { ArtifactsLinks } from '../ui/links';
  * no column on this one whose truth depends on it. A request that changes nothing on screen is a
  * request this page does not send.
  *
- * **The version cell is a real `<a [href]>`, not a `routerLink`.** It is the download —
- * `/artifacts/daemons/<name>/<version>`, the same version-addressed GET a bootstrap script makes —
- * and it is a full-document navigation off this application. A `routerLink` would compile, render
- * as a link, and go to the 404 page.
+ * **The version cell fetches rather than navigates.** It used to be a real `<a [href]>` to
+ * `/artifacts/daemons/<name>/<version>` — the same version-addressed GET a bootstrap script makes —
+ * as a full-document navigation off this application; a `routerLink` would have compiled, rendered
+ * as a link, and gone to the 404 page. That route is role-guarded, though, and a navigation sends
+ * no bearer (epic qits-543), so the cell is a button that fetches with the bearer and saves the
+ * blob instead (`QitsBearerFetch.download`, Judgement call).
  *
  * **The digest is shortened for the cell and whole in the title.** An operator pinning a version
  * needs the exact `sha256:<hex>` the wire uttered, and a table twelve hex characters wide is the
@@ -57,6 +60,7 @@ export class DaemonPage {
 
   private readonly api = inject(ArtifactsApi);
   private readonly route = inject(ActivatedRoute);
+  private readonly bearerFetch = inject(QitsBearerFetch);
 
   protected readonly formatBytes = formatBytes;
   protected readonly formatInstant = formatInstant;
@@ -104,7 +108,15 @@ export class DaemonPage {
   }
 
   /** The version-addressed download on the daemon wire, which carries no repository segment. */
-  protected downloadHref(version: DaemonVersionDto): string {
+  private downloadUrl(version: DaemonVersionDto): string {
     return `/artifacts/daemons/${encodeURIComponent(this.daemonName())}/${encodeURIComponent(version.version)}`;
+  }
+
+  /** Fetched with the bearer rather than navigated to, since the route is role-guarded. */
+  protected async download(version: DaemonVersionDto): Promise<void> {
+    await this.bearerFetch.download(
+      this.downloadUrl(version),
+      `${this.daemonName()}-${version.version}`,
+    );
   }
 }

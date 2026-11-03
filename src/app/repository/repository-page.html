@@ -340,9 +340,9 @@
             @for (record of recordRows(); track record.id + record.createdAt) {
               <tr>
                 <th scope="row" class="mono">
-                  <a [href]="'/artifacts/api/repositories/' + repoName() + '/blobs/' + record.id">
+                  <button type="button" class="link-button" (click)="downloadBlob(record)">
                     {{ shortDigest(record.id) }}
-                  </a>
+                  </button>
                 </th>
                 <td class="subtle">{{ record.mediatype }}</td>
                 <td class="subtle metadata">{{ metadata(record) }}</td>

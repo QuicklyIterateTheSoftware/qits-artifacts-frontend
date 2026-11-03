@@ -102,6 +102,23 @@ td a {
   color: #4338ca;
 }
 
+/* A download that must carry the bearer cannot be a plain `<a href>` navigation (epic qits-543):
+   this reproduces that link's look on a `<button>` that fetches instead. */
+.link-button {
+  border: none;
+  background: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: #4338ca;
+  cursor: pointer;
+}
+
+.link-button:hover,
+.link-button:focus-visible {
+  text-decoration: underline;
+}
+
 .mono {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 0.85em;

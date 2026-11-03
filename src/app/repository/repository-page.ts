@@ -10,6 +10,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink, convertToParamMap } from '@angular/router';
 import { QitsBadge, QitsButton } from '@qits/ui-components';
+import { QitsBearerFetch } from '@qits/angular';
 import { ArtifactsApi } from '../api/artifacts-api';
 import type {
   ArtifactFilters,
@@ -72,6 +73,7 @@ export class RepositoryPage {
 
   private readonly api = inject(ArtifactsApi);
   private readonly route = inject(ActivatedRoute);
+  private readonly bearerFetch = inject(QitsBearerFetch);
 
   protected readonly formatBytes = formatBytes;
   protected readonly formatInstant = formatInstant;
@@ -318,6 +320,16 @@ export class RepositoryPage {
   protected metadata(record: ArtifactRecordDto): string {
     const entries = Object.entries(record.metadata);
     return entries.length ? entries.map(([key, value]) => `${key}=${value}`).join(' · ') : NONE;
+  }
+
+  /**
+   * The blob route is role-guarded, so a plain `<a href>` navigation (which sends no bearer) would
+   * answer 401. Fetched with the bearer and saved from the blob instead (epic qits-543, Judgement
+   * call). The digest's `:` is not a valid filename character on every filesystem, hence the dash.
+   */
+  protected async downloadBlob(record: ArtifactRecordDto): Promise<void> {
+    const url = `/artifacts/api/repositories/${this.repoName()}/blobs/${record.id}`;
+    await this.bearerFetch.download(url, `${this.repoName()}-${record.id.replace(':', '-')}`);
   }
 
   /** `22 tags · 22 manifests` — what an image row carries beside its size. */

@@ -41,7 +41,9 @@
         @for (version of rows(); track version.version) {
           <tr>
             <th scope="row" class="mono">
-              <a [href]="downloadHref(version)">{{ version.version }}</a>
+              <button type="button" class="link-button" (click)="download(version)">
+                {{ version.version }}
+              </button>
             </th>
             <td class="num">{{ formatBytes(version.sizeBytes) }}</td>
             <td class="mono subtle" [title]="version.digest">{{ shortDigest(version.digest) }}</td>

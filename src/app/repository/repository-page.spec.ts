@@ -4,8 +4,17 @@ import { provideLocationMocks } from '@angular/common/testing';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
+import { QitsBearerFetch } from '@qits/angular';
 import { routes } from '../app.routes';
 import type { ArtifactRepositoryDto } from '../api/dto';
+
+/** A stand-in for {@link QitsBearerFetch}: records what it was asked to download. */
+class FakeBearerFetch {
+  readonly downloads: { url: string; fileName: string }[] = [];
+  async download(url: string, fileName: string): Promise<void> {
+    this.downloads.push({ url, fileName });
+  }
+}
 
 /**
  * One repository, drawn by its type.
@@ -17,6 +26,7 @@ import type { ArtifactRepositoryDto } from '../api/dto';
 describe('RepositoryPage', () => {
   let http: HttpTestingController;
   let harness: RouterTestingHarness;
+  let bearerFetch: FakeBearerFetch;
 
   const repository = (over: Partial<ArtifactRepositoryDto> = {}): ArtifactRepositoryDto => ({
     name: 'qits',
@@ -37,12 +47,14 @@ describe('RepositoryPage', () => {
   ];
 
   beforeEach(() => {
+    bearerFetch = new FakeBearerFetch();
     TestBed.configureTestingModule({
       providers: [
         provideRouter(routes),
         provideLocationMocks(),
         provideHttpClient(),
         provideHttpClientTesting(),
+        { provide: QitsBearerFetch, useValue: bearerFetch },
       ],
     });
     http = TestBed.inject(HttpTestingController);
@@ -136,6 +148,39 @@ describe('RepositoryPage', () => {
     expect(text()).toContain('2.00 KiB');
     expect(text()).toContain('31 Jul 2026 14:06:23Z');
     expect(text()).toContain('Never');
+  });
+
+  it('downloads a blob with the bearer, not a plain link the guarded route would 401', async () => {
+    await open('ci-videos');
+    flushStore();
+    await settle();
+    http.expectOne('/artifacts/api/repositories/ci-videos/blobs').flush({
+      records: [
+        {
+          id: 'sha256:abcdef0123456789',
+          repository: 'ci-videos',
+          mediatype: 'video/webm',
+          size: 2048,
+          createdAt: '2026-07-31T14:06:23Z',
+          accessedAt: null,
+          metadata: {},
+        },
+      ],
+    });
+    await settle();
+
+    const button = (harness.fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>(
+      'tbody button',
+    )!;
+    button.click();
+    await settle();
+
+    expect(bearerFetch.downloads).toEqual([
+      {
+        url: '/artifacts/api/repositories/ci-videos/blobs/sha256:abcdef0123456789',
+        fileName: 'ci-videos-sha256-abcdef0123456789',
+      },
+    ]);
   });
 
   it('submits repository artifact bounds and access state to the server', async () => {

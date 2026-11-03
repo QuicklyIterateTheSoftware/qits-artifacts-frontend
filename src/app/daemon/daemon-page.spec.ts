@@ -4,20 +4,31 @@ import { provideLocationMocks } from '@angular/common/testing';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
+import { QitsBearerFetch } from '@qits/angular';
 import { routes } from '../app.routes';
 import type { DaemonVersionDto } from '../api/dto';
+
+/** A stand-in for {@link QitsBearerFetch}: records what it was asked to download. */
+class FakeBearerFetch {
+  readonly downloads: { url: string; fileName: string }[] = [];
+  async download(url: string, fileName: string): Promise<void> {
+    this.downloads.push({ url, fileName });
+  }
+}
 
 /**
  * The versions of one daemon.
  *
- * Two behaviours are worth the file on their own: a version cell that is a **real download link**
- * rather than a `routerLink` that would go nowhere, and a digest kept in the wire's own
- * `sha256:<hex>` spelling — shortened for the cell, whole in the title — because an operator
- * copying it out is pinning a deployment with it.
+ * Two behaviours are worth the file on their own: a version cell that **fetches its own download
+ * with the bearer** rather than a `routerLink` that would go nowhere or a plain `<a href>` that the
+ * role-guarded route would answer 401 to, and a digest kept in the wire's own `sha256:<hex>`
+ * spelling — shortened for the cell, whole in the title — because an operator copying it out is
+ * pinning a deployment with it.
  */
 describe('DaemonPage', () => {
   let http: HttpTestingController;
   let harness: RouterTestingHarness;
+  let bearerFetch: FakeBearerFetch;
 
   const version = (over: Partial<DaemonVersionDto> = {}): DaemonVersionDto => ({
     version: '2026.828.202327',
@@ -29,12 +40,14 @@ describe('DaemonPage', () => {
   });
 
   beforeEach(() => {
+    bearerFetch = new FakeBearerFetch();
     TestBed.configureTestingModule({
       providers: [
         provideRouter(routes),
         provideLocationMocks(),
         provideHttpClient(),
         provideHttpClientTesting(),
+        { provide: QitsBearerFetch, useValue: bearerFetch },
       ],
     });
     http = TestBed.inject(HttpTestingController);
@@ -72,17 +85,22 @@ describe('DaemonPage', () => {
     expect(text()).toContain('20.0 MiB');
   });
 
-  it('links a version to its own download, not to a route that does not exist', async () => {
+  it('downloads a version with the bearer, not a plain link the guarded route would 401', async () => {
     await open('daemons', 'qits-agent');
     http
       .expectOne('/artifacts/api/repositories/daemons/daemons/qits-agent/versions')
       .flush({ versions: [version()] });
     await settle();
 
-    const link = page().querySelector<HTMLAnchorElement>('tbody a')!;
+    const button = page().querySelector<HTMLButtonElement>('tbody button')!;
+    button.click();
+    await settle();
+
     // The daemon wire carries no repository segment — that is DaemonPaths' one departure from the
-    // npm and maven grammars, and a link that invented one would 404.
-    expect(link.getAttribute('href')).toBe('/artifacts/daemons/qits-agent/2026.828.202327');
+    // npm and maven grammars, and a download that invented one would 404.
+    expect(bearerFetch.downloads).toEqual([
+      { url: '/artifacts/daemons/qits-agent/2026.828.202327', fileName: 'qits-agent-2026.828.202327' },
+    ]);
   });
 
   it('keeps the digest in the wire spelling, shortened for the cell and whole in the title', async () => {

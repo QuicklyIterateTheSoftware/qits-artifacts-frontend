@@ -1,5 +1,5 @@
 import { provideBrowserGlobalErrorListeners, type ApplicationConfig } from '@angular/core';
-import { provideHttpClient, withFetch } from '@angular/common/http';
+import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/http';
 import { provideRouter } from '@angular/router';
 import {
   provideQitsBuilds,
@@ -7,11 +7,12 @@ import {
   provideQitsProjects,
   provideQitsScope,
 } from '@qits/ui-components';
+import { provideQitsBearerSignIn, qitsBearerInterceptor } from '@qits/angular';
 
 import { routes } from './app.routes';
 
 /**
- * Seven providers, in the order spa-home documents and spa-ci and spa-cd repeat.
+ * Nine providers.
  *
  * - `provideBrowserGlobalErrorListeners` funnels genuinely-global errors and unhandled rejections
  *   into Angular's `ErrorHandler`.
@@ -19,8 +20,16 @@ import { routes } from './app.routes';
  *   segment — so it is what makes each page bookmarkable.
  * - `withFetch` is not a preference. The default XHR backend is invisible to OTLP fetch
  *   instrumentation, so choosing it would quietly forfeit client spans the moment this deployment
- *   grows a telemetry relay. Every call this app makes is a same-origin path behind the gateway,
- *   and these reads carry no credential at all — the artifacts token filter covers writes only.
+ *   grows a telemetry relay. Every call this app's own `ArtifactsApi` makes is a same-origin path
+ *   behind the gateway, and these reads carry no credential at all — the artifacts token filter
+ *   covers writes only, and this app makes none. `withInterceptors([qitsBearerInterceptor])` is
+ *   still added, because the two downloads below need `QitsBearerFetch`, which the same sign-in
+ *   provides (epic qits-543).
+ * - `provideQitsBearerSignIn({ clientId: 'qits-spa' })` wires the OIDC authorization-code-with-PKCE
+ *   sign-in, the token store, and `/auth/callback` — prepended to the routes below, ahead of every
+ *   guard this app might add. The daemon page's version download and the repository page's blob
+ *   download are role-guarded routes a plain `<a href>` cannot carry a bearer to, so both fetch
+ *   through `QitsBearerFetch.download` instead (`daemon-page.ts`, `repository-page.ts`).
  * - `provideQitsNavigation` gives `QitsMainLayout` its left navigation, by asking the gateway for
  *   `/main-navigation` once at startup. The list is the gateway's answer now — derived from the
  *   routes it actually serves — not a list compiled into @qits/ui-components; without this provider
@@ -44,7 +53,8 @@ export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
     provideRouter(routes),
-    provideHttpClient(withFetch()),
+    provideHttpClient(withFetch(), withInterceptors([qitsBearerInterceptor])),
+    provideQitsBearerSignIn({ clientId: 'qits-spa' }),
     provideQitsNavigation(),
     provideQitsProjects(),
     provideQitsScope('repository'),
