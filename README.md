@@ -93,10 +93,12 @@ ng serve
 Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
 
 `proxy.conf.json` forwards `/artifacts/api`, `/projects/api` and `/main-navigation` to the edge on
-`localhost:8080`, because `ng serve` puts nothing in front. In a deployment every call is a
-same-origin path on this service's own host, which the edge path-routes to whichever service owns
-the prefix. These reads carry no credential in either case — the service's token filter covers write
-methods only.
+`localhost:8080`, because `ng serve` puts nothing in front. In a deployment the store's reads are
+same-origin paths on this service's own host, and carry no credential. The cleanup is the exception
+(qits-2138): its listing, plan and run go to **qits-orchestrator**, on the origin the navigation names
+for it, with the reader's bearer — qits-orchestrator reads the live pins qits-artifacts can no longer
+reach and hands them on. qits-orchestrator is private, so a browser off the network-access tunnel
+gets the platform's tunnel hint on both cleanup views instead of a plan, and no run.
 
 ## Running the checks
 

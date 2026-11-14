@@ -1,13 +1,20 @@
 import { HttpErrorResponse, provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { ArtifactsApi } from './artifacts-api';
+import { QITS_NAVIGATION, toNavTree } from '@qits/ui-components';
+import { ArtifactsApi, orchestratorUnreachable } from './artifacts-api';
+
+const ORCHESTRATOR_ORIGIN = 'https://orchestrator.qits.example';
 
 /**
  * The paths and the envelopes, asserted once here so the pages' specs can be about rendering.
  *
- * These are same-origin absolute paths on purpose — the SPA is served at `/artifacts/` by the very
- * service it reads from, behind the same gateway, and these reads carry no credential at all.
+ * The store's reads are same-origin absolute paths on purpose — the SPA is served by the very
+ * service it reads from, behind the same gateway, and these reads carry no credential at all. The
+ * three cleanup calls are the exception (qits-2138): they go to qits-orchestrator's own origin, as
+ * the navigation names it, and carry the bearer `qitsBearerInterceptor` adds (installed in
+ * `app.config.ts`, not under test here).
  *
  * The backend is being built against this contract in parallel, so this file is where the contract
  * is pinned: a path that changes shape breaks here first, loudly, rather than at runtime.
@@ -18,7 +25,24 @@ describe('ArtifactsApi', () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      providers: [provideHttpClient(), provideHttpClientTesting()],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        {
+          provide: QITS_NAVIGATION,
+          useValue: {
+            tree: signal(
+              toNavTree({
+                slots: {},
+                applications: {
+                  'qits-orchestrator': { origin: ORCHESTRATOR_ORIGIN, exposure: 'private' },
+                },
+              }),
+            ),
+            failed: signal(false),
+          },
+        },
+      ],
     });
     api = TestBed.inject(ArtifactsApi);
     http = TestBed.inject(HttpTestingController);
@@ -307,19 +331,82 @@ describe('ArtifactsApi', () => {
     await expect(versions).resolves.toMatchObject([{ metadata: {} }]);
   });
 
-  // The one write this application makes is guarded by a static token it does not hold and must
-  // not invent. The call carries no credential and the 401 reaches the caller intact.
-  it('sends no token on the sweep, and surfaces the 401 that comes back', async () => {
-    const swept = api.gcRepositorySweep('qits');
-    const request = http.expectOne('/artifacts/api/gc/repositories/qits/sweep');
-    expect(request.request.method).toBe('POST');
-    expect(request.request.headers.has('X-Artifacts-Token')).toBe(false);
-    expect(request.request.headers.has('Authorization')).toBe(false);
-    request.flush(
-      { message: 'Missing or invalid X-Artifacts-Token' },
-      { status: 401, statusText: 'Unauthorized' },
+  /** Lets an awaited cross-origin URL resolve, so a request that is going out has gone out. */
+  async function settle(): Promise<void> {
+    for (let i = 0; i < 5; i++) await Promise.resolve();
+  }
+
+  it('reads every repository’s cleanup from qits-orchestrator, on its own origin', async () => {
+    const plan = api.gcRepositories();
+    await settle();
+    const request = http.expectOne(
+      `${ORCHESTRATOR_ORIGIN}/orchestrator/api/artifacts/repositories`,
     );
-    await expect(swept).rejects.toMatchObject({ status: 401 });
+    expect(request.request.method).toBe('GET');
+    request.flush({
+      generatedAt: '2026-08-05T12:00:00Z',
+      executable: true,
+      pinFailures: [],
+      graceWindow: 'P7D',
+      repositories: [],
+    });
+    await expect(plan).resolves.toMatchObject({ executable: true, repositories: [] });
+  });
+
+  it('reads one repository’s plan from qits-orchestrator, the segment encoded', async () => {
+    const plan = api.gcRepositoryPlan('a/b');
+    await settle();
+    http
+      .expectOne(`${ORCHESTRATOR_ORIGIN}/orchestrator/api/artifacts/repositories/a%2Fb/plan`)
+      .flush({ repository: 'a/b' });
+    await expect(plan).resolves.toMatchObject({ repository: 'a/b' });
+  });
+
+  // The one write this application makes. It goes to qits-orchestrator with an empty body — there is
+  // no way to submit a plan — and no machine token: the bearer is the interceptor's, and what
+  // qits-artifacts accepts is qits-orchestrator's to hold.
+  it('sweeps through qits-orchestrator with an empty body and no machine token', async () => {
+    const swept = api.gcRepositorySweep('qits');
+    await settle();
+    const request = http.expectOne(
+      `${ORCHESTRATOR_ORIGIN}/orchestrator/api/artifacts/repositories/qits/sweep`,
+    );
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({});
+    expect(request.request.headers.has('X-Artifacts-Token')).toBe(false);
+    request.flush(
+      { message: 'a gc run is already active: 7f3c' },
+      { status: 409, statusText: 'Conflict' },
+    );
+    await expect(swept).rejects.toMatchObject({ status: 409 });
+  });
+
+  describe('orchestratorUnreachable', () => {
+    const answer = (status: number, error: unknown) =>
+      new HttpErrorResponse({ status, error, url: `${ORCHESTRATOR_ORIGIN}/orchestrator/api/x` });
+
+    it('reads a network error and the public edge’s refusals as unreachable', () => {
+      expect(orchestratorUnreachable(answer(0, new ProgressEvent('error')))).toBe(true);
+      expect(orchestratorUnreachable(answer(421, '`orchestrator` is served only by…'))).toBe(true);
+      expect(
+        orchestratorUnreachable(
+          answer(404, '`orchestrator` is not an application this edge routes. Configured: [ci]\n'),
+        ),
+      ).toBe(true);
+    });
+
+    it('keeps a repository that does not exist a real 404, and a refusal a refusal', () => {
+      expect(
+        orchestratorUnreachable(answer(404, { message: 'No such artifacts repository: nope' })),
+      ).toBe(false);
+      expect(orchestratorUnreachable(answer(409, { message: 'a gc run is already active' }))).toBe(
+        false,
+      );
+      expect(
+        orchestratorUnreachable(answer(502, { message: 'qits-artifacts could not be asked' })),
+      ).toBe(false);
+      expect(orchestratorUnreachable(new Error('boom'))).toBe(false);
+    });
   });
 
   it('rejects with the HttpErrorResponse, so callers can read the status', async () => {

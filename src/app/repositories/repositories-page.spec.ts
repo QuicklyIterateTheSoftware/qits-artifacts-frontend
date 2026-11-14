@@ -1,9 +1,11 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideLocationMocks } from '@angular/common/testing';
+import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
+import { QITS_NAVIGATION, QITS_PRIVATE_APP_HINT, toNavTree } from '@qits/ui-components';
 import { routes } from '../app.routes';
 import type {
   ArtifactRepositoryDto,
@@ -11,6 +13,9 @@ import type {
   GcRepositoryPlanSummaryDto,
   StoreSummaryDto,
 } from '../api/dto';
+
+/** The cleanup read goes to qits-orchestrator's own origin, as the navigation names it (qits-2138). */
+const CLEANUP_URL = 'https://orchestrator.qits.example/orchestrator/api/artifacts/repositories';
 
 /**
  * The overview, one state at a time.
@@ -78,6 +83,23 @@ describe('RepositoriesPage', () => {
         provideLocationMocks(),
         provideHttpClient(),
         provideHttpClientTesting(),
+        {
+          provide: QITS_NAVIGATION,
+          useValue: {
+            tree: signal(
+              toNavTree({
+                slots: {},
+                applications: {
+                  'qits-orchestrator': {
+                    origin: 'https://orchestrator.qits.example',
+                    exposure: 'private',
+                  },
+                },
+              }),
+            ),
+            failed: signal(false),
+          },
+        },
       ],
     });
     http = TestBed.inject(HttpTestingController);
@@ -110,8 +132,12 @@ describe('RepositoriesPage', () => {
     http.expectOne('/artifacts/api/store/summary').flush(figures);
   }
 
-  function flushCleanup(plan: GcRepositoriesPlanResponse = cleanup([cleanupRow()])): void {
-    http.expectOne('/artifacts/api/gc/repositories').flush(plan);
+  /** The cleanup read goes out once the orchestrator's URL has resolved — settle, then answer. */
+  async function flushCleanup(
+    plan: GcRepositoriesPlanResponse = cleanup([cleanupRow()]),
+  ): Promise<void> {
+    await settle();
+    http.expectOne(CLEANUP_URL).flush(plan);
   }
 
   it('reads exactly three requests, and none per repository', async () => {
@@ -124,7 +150,7 @@ describe('RepositoriesPage', () => {
       repository({ name: 'ci-videos', type: 'ci-videos', itemCount: 0, sizeBytes: 0 }),
     ]);
     flushSummary();
-    flushCleanup(
+    await flushCleanup(
       cleanup([
         cleanupRow(),
         cleanupRow({ repository: 'maven', type: 'maven-packages' }),
@@ -154,7 +180,7 @@ describe('RepositoriesPage', () => {
       repository({ name: 'ci-videos', type: 'ci-videos', itemCount: 0, sizeBytes: 0 }),
     ]);
     flushSummary();
-    flushCleanup(cleanup([]));
+    await flushCleanup(cleanup([]));
     await settle();
 
     expect(text()).toContain('10 images');
@@ -170,7 +196,7 @@ describe('RepositoriesPage', () => {
     await open();
     flushRepositories([repository()]);
     flushSummary();
-    flushCleanup();
+    await flushCleanup();
     await settle();
 
     expect(text()).toContain('4.04 GiB');
@@ -181,7 +207,7 @@ describe('RepositoriesPage', () => {
     await open();
     flushRepositories([repository()]);
     flushSummary();
-    flushCleanup(
+    await flushCleanup(
       cleanup([
         cleanupRow({ identitiesCondemned: 3, blobsSweepable: 4, reclaimableBytes: 43229184 }),
       ]),
@@ -202,7 +228,7 @@ describe('RepositoriesPage', () => {
     await open();
     flushRepositories([repository()]);
     flushSummary();
-    flushCleanup();
+    await flushCleanup();
     await settle();
 
     expect(text()).toContain('that repository alone');
@@ -220,7 +246,7 @@ describe('RepositoriesPage', () => {
       repository({ name: 'npm', type: 'npm-packages', itemCount: 2, sizeBytes: 87040 }),
     ]);
     flushSummary();
-    flushCleanup(
+    await flushCleanup(
       cleanup(
         [
           cleanupRow({ error: 'live pins unavailable — qits-cd deployment pins: refused' }),
@@ -251,7 +277,7 @@ describe('RepositoriesPage', () => {
       repository({ name: 'npm', type: 'npm-packages', itemCount: 2, sizeBytes: 87040 }),
     ]);
     flushSummary();
-    flushCleanup(
+    await flushCleanup(
       cleanup([
         cleanupRow({
           repository: 'ci-videos',
@@ -279,7 +305,7 @@ describe('RepositoriesPage', () => {
     await open();
     flushRepositories([repository({ name: 'maven', type: 'maven-packages', itemCount: 8 })]);
     flushSummary();
-    flushCleanup(
+    await flushCleanup(
       cleanup([
         cleanupRow({
           repository: 'maven',
@@ -302,7 +328,7 @@ describe('RepositoriesPage', () => {
     await open();
     flushRepositories([repository()]);
     flushSummary();
-    flushCleanup();
+    await flushCleanup();
     await settle();
 
     const review = Array.from(page().querySelectorAll('a')).find(
@@ -318,7 +344,7 @@ describe('RepositoriesPage', () => {
     await open();
     flushRepositories([repository()]);
     flushSummary();
-    flushCleanup();
+    await flushCleanup();
     await settle();
 
     expect(text()).toContain('deletes bytes');
@@ -330,7 +356,7 @@ describe('RepositoriesPage', () => {
     await open();
     flushRepositories([repository()]);
     flushSummary();
-    flushCleanup();
+    await flushCleanup();
     await settle();
 
     expect(text()).toContain('Per-image unions, added up');
@@ -354,7 +380,7 @@ describe('RepositoriesPage', () => {
       npmProxyPackumentBytes: 0,
       mavenProxyBytes: 0,
     });
-    flushCleanup();
+    await flushCleanup();
     await settle();
 
     expect(text()).not.toContain('Mirrored from upstream');
@@ -367,7 +393,7 @@ describe('RepositoriesPage', () => {
     await open();
     flushRepositories([repository()]);
     flushSummary();
-    flushCleanup();
+    await flushCleanup();
     await settle();
 
     expect(text()).not.toContain('counted exactly once');
@@ -386,7 +412,7 @@ describe('RepositoriesPage', () => {
     await open();
     flushRepositories([repository()]);
     flushSummary();
-    flushCleanup();
+    await flushCleanup();
     await settle();
 
     expect(text()).toContain('The git host is not in this table');
@@ -395,7 +421,7 @@ describe('RepositoriesPage', () => {
   it('keeps the table standing when only the summary fails, and offers it its own retry', async () => {
     await open();
     flushRepositories([repository()]);
-    flushCleanup();
+    await flushCleanup();
     http
       .expectOne('/artifacts/api/store/summary')
       .flush({ message: 'down' }, { status: 503, statusText: 'Service Unavailable' });
@@ -422,14 +448,34 @@ describe('RepositoriesPage', () => {
     await open();
     flushRepositories([repository()]);
     flushSummary();
+    await settle();
     http
-      .expectOne('/artifacts/api/gc/repositories')
+      .expectOne(CLEANUP_URL)
       .flush({ message: 'down' }, { status: 503, statusText: 'Service Unavailable' });
     await settle();
 
     expect(text()).toContain('qits');
     expect(text()).toContain('4.04 GiB');
     expect(text()).toContain('Could not read what a cleanup would free');
+    expect(text()).not.toContain('nothing');
+    expect(text()).not.toContain(QITS_PRIVATE_APP_HINT);
+  });
+
+  it('shows the tunnel hint when qits-orchestrator cannot be reached, and the store stands', async () => {
+    // qits-orchestrator is private: off the tunnel the cleanup read fails as a network error. That
+    // is not a failure a Retry can fix, so the page names the tunnel instead — and draws the
+    // Cleanup column as the em dashes of a read that did not arrive, never as zeros.
+    await open();
+    flushRepositories([repository()]);
+    flushSummary();
+    await settle();
+    http.expectOne(CLEANUP_URL).error(new ProgressEvent('error'), { status: 0, statusText: '' });
+    await settle();
+
+    expect(text()).toContain(QITS_PRIVATE_APP_HINT);
+    expect(text()).toContain('Nothing was deleted');
+    expect(text()).not.toContain('Could not read what a cleanup would free');
+    expect(text()).toContain('4.04 GiB');
     expect(text()).not.toContain('nothing');
   });
 
@@ -439,7 +485,7 @@ describe('RepositoriesPage', () => {
       .expectOne('/artifacts/api/repositories')
       .flush({ message: 'nope' }, { status: 500, statusText: 'Server Error' });
     flushSummary();
-    flushCleanup();
+    await flushCleanup();
     await settle();
 
     expect(text()).toContain('Could not load the repositories');
@@ -450,7 +496,7 @@ describe('RepositoriesPage', () => {
     await open();
     flushRepositories([]);
     flushSummary();
-    flushCleanup(cleanup([]));
+    await flushCleanup(cleanup([]));
     await settle();
 
     expect(text()).toContain('This store holds no repositories at all.');

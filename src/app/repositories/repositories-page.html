@@ -64,6 +64,16 @@
       (retry)="loadCleanup()"
     />
 
+    @if (cleanupUnreachable()) {
+      <p class="page-error" role="status">
+        <span>
+          ⚠ What a cleanup would free could not be read: it comes from qits-orchestrator, and this
+          browser cannot reach it. {{ privateAppHint }} Nothing was deleted; the rest of this page
+          is read from qits-artifacts and stands as it is.
+        </span>
+      </p>
+    }
+
     @if (pinsDown(); as why) {
       <p class="page-error" role="status">
         <span>

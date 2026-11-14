@@ -22,6 +22,16 @@
   (retry)="load()"
 />
 
+@if (unreachable() && !plan()) {
+  <p class="page-error" role="alert">
+    <span>
+      ⚠ The cleanup plan could not be read: it comes from qits-orchestrator, and this browser cannot
+      reach it. {{ privateAppHint }} Nothing was deleted, and nothing can be run from here until the
+      plan is on screen.
+    </span>
+  </p>
+}
+
 @if (plan(); as plan) {
   <section class="rule">
     <p>
@@ -256,9 +266,8 @@
   }
 
   <p class="note">
-    Writes here are guarded by the service, not by this page: qits-artifacts checks a static
-    <code>X-Artifacts-Token</code> on every write under <code>/artifacts/api</code>, and no qits
-    frontend holds a credential of any kind. Where a deployment sets that token, running a cleanup
-    answers 401 and says so — the operator's shell is the caller that can carry it.
+    The plan and the run both go through qits-orchestrator, which reads the live pins and hands them
+    to qits-artifacts. It admits your own sign-in where you hold one of its gc roles, and it — not
+    this page — guards the run: a run refused there deletes nothing.
   </p>
 }

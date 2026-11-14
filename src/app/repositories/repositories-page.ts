@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { QitsBadge, QitsButton, QITS_SCOPE } from '@qits/ui-components';
-import { ArtifactsApi } from '../api/artifacts-api';
+import { QITS_PRIVATE_APP_HINT, QitsBadge, QitsButton, QITS_SCOPE } from '@qits/ui-components';
+import { ArtifactsApi, orchestratorUnreachable } from '../api/artifacts-api';
 import type {
   ArtifactRepositoryDto,
   GcRepositoriesPlanResponse,
@@ -12,7 +12,7 @@ import type {
 import { Async } from '../ui/async';
 import { Empty } from '../ui/empty';
 import { NONE, formatBytes, itemNoun, plural } from '../ui/format';
-import { LOADING, failed, ready, type Loadable } from '../ui/loadable';
+import { IDLE, LOADING, failed, ready, type Loadable } from '../ui/loadable';
 import { typeTone } from '../ui/repository-type';
 import { StoreSummary } from './store-summary';
 import { ArtifactsLinks } from '../ui/links';
@@ -55,13 +55,20 @@ const EXCLUDED_NOTE = 'excluded by configuration';
  *
  * - `GET /artifacts/api/repositories` — the repositories, each with its type, item count and union.
  * - `GET /artifacts/api/store/summary` — the store-level figures.
- * - `GET /artifacts/api/gc/repositories` — every repository's expected cleanup, from one run.
+ * - `GET /orchestrator/api/artifacts/repositories` — every repository's expected cleanup, from one
+ *   run, on qits-orchestrator's own origin (qits-2138): it reads the live pins and hands them to
+ *   qits-artifacts, whose answer it returns verbatim.
  *
  * The variable term is genuinely zero and stays zero. The third read is the one that had to be
- * designed for it: a cleanup plan costs the service a full census plus two cross-service calls to
- * qits-cd and qits-ci, so a per-row endpoint would have made this page N censuses and 2N of those
- * calls deep, and would have read the live pins N times in a run that is meant to read them once.
- * The service answers every row from a single run instead.
+ * designed for it: a cleanup plan costs a full census plus a read of every live pin source, so a
+ * per-row endpoint would have made this page N censuses and N pin reads deep, and would have read
+ * the live pins N times in a run that is meant to read them once. The service answers every row
+ * from a single run instead.
+ *
+ * **qits-orchestrator is private.** From a browser off the network-access tunnel the third read
+ * cannot arrive at all, and the page says so in {@link QITS_PRIVATE_APP_HINT}'s words instead of an
+ * error with a Retry that cannot help ({@link orchestratorUnreachable} decides which failures those
+ * are). The Cleanup column then draws its em dashes, as for any read that did not arrive.
  *
  * The three reads are independent and all are issued at once. Any one of them failing leaves the
  * other two standing with their own retry — they answer different questions and none is a
@@ -136,6 +143,11 @@ export class RepositoriesPage {
     );
   protected readonly summary = signal<Loadable<StoreSummaryDto>>(LOADING);
   protected readonly cleanup = signal<Loadable<GcRepositoriesPlanResponse>>(LOADING);
+
+  /** Whether the cleanup read could not reach qits-orchestrator from this browser. */
+  protected readonly cleanupUnreachable = signal(false);
+
+  protected readonly privateAppHint = QITS_PRIVATE_APP_HINT;
 
   /** The rows, once they are here; an empty list otherwise, so the template stays flat. */
   protected readonly rows = computed(() => {
@@ -249,10 +261,16 @@ export class RepositoriesPage {
 
   protected async loadCleanup(): Promise<void> {
     this.cleanup.set(LOADING);
+    this.cleanupUnreachable.set(false);
     try {
       this.cleanup.set(ready(await this.api.gcRepositories()));
     } catch (error) {
-      this.cleanup.set(failed(error));
+      if (orchestratorUnreachable(error)) {
+        this.cleanupUnreachable.set(true);
+        this.cleanup.set(IDLE);
+      } else {
+        this.cleanup.set(failed(error));
+      }
     }
   }
 

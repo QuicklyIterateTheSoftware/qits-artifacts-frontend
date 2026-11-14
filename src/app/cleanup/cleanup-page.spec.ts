@@ -1,11 +1,16 @@
 import { provideHttpClient } from '@angular/common/http';
+import { signal } from '@angular/core';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideLocationMocks } from '@angular/common/testing';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
+import { QITS_NAVIGATION, QITS_PRIVATE_APP_HINT, toNavTree } from '@qits/ui-components';
 import { routes } from '../app.routes';
 import type { GcRepositoryPlanReportDto, GcRepositorySweepReportDto } from '../api/dto';
+
+/** qits-orchestrator's own origin, as the navigation names it: every call on this page goes there. */
+const ORCHESTRATOR = 'https://orchestrator.qits.example/orchestrator/api/artifacts/repositories';
 
 /**
  * The review gate, one state at a time.
@@ -14,7 +19,9 @@ import type { GcRepositoryPlanReportDto, GcRepositorySweepReportDto } from '../a
  * if the rest are ever trimmed: the run affordance is **not rendered at all** while the live pins
  * cannot be read (not merely disabled); the first press arms and sends nothing; the second sends
  * **exactly one** POST, to the exact scoped URL; and an aborted receipt says in so many words that
- * nothing was deleted.
+ * nothing was deleted. Since qits-2138 a fifth: a browser that cannot reach qits-orchestrator —
+ * which is private — gets the tunnel hint and no Run, while a 404 for a repository that does not
+ * exist stays the "no such repository" it is.
  */
 describe('CleanupPage', () => {
   let http: HttpTestingController;
@@ -130,6 +137,23 @@ describe('CleanupPage', () => {
         provideLocationMocks(),
         provideHttpClient(),
         provideHttpClientTesting(),
+        {
+          provide: QITS_NAVIGATION,
+          useValue: {
+            tree: signal(
+              toNavTree({
+                slots: {},
+                applications: {
+                  'qits-orchestrator': {
+                    origin: 'https://orchestrator.qits.example',
+                    exposure: 'private',
+                  },
+                },
+              }),
+            ),
+            failed: signal(false),
+          },
+        },
       ],
     });
     http = TestBed.inject(HttpTestingController);
@@ -154,8 +178,24 @@ describe('CleanupPage', () => {
     }
   }
 
-  function flushPlan(report: GcRepositoryPlanReportDto = plan(), repository = 'npm'): void {
-    http.expectOne(`/artifacts/api/gc/repositories/${repository}/plan`).flush(report);
+  /** The plan read goes out once the orchestrator's URL has resolved — settle first, then answer. */
+  async function flushPlan(
+    report: GcRepositoryPlanReportDto = plan(),
+    repository = 'npm',
+  ): Promise<void> {
+    await settle();
+    http.expectOne(`${ORCHESTRATOR}/${repository}/plan`).flush(report);
+  }
+
+  /** Opens the page, arms the run and presses it, leaving the sweep request pending. */
+  async function pressRun(): Promise<void> {
+    await open();
+    await flushPlan();
+    await settle();
+    press('Run this cleanup');
+    await settle();
+    press('Delete 1 identity');
+    await settle();
   }
 
   function press(label: string): void {
@@ -167,7 +207,7 @@ describe('CleanupPage', () => {
 
   it('reads exactly one request, and shows both halves of the plan', async () => {
     await open();
-    flushPlan();
+    await flushPlan();
     await settle();
 
     http.verify();
@@ -184,7 +224,7 @@ describe('CleanupPage', () => {
 
   it('shows the kept half only when asked, and it costs no request', async () => {
     await open();
-    flushPlan();
+    await flushPlan();
     await settle();
 
     expect(text()).not.toContain('among the last 2 released versions');
@@ -202,7 +242,7 @@ describe('CleanupPage', () => {
     // run would take. The plan itself stays fully readable: a review can happen while qits-cd is
     // down.
     await open();
-    flushPlan(
+    await flushPlan(
       plan({
         executable: false,
         pinFailures: ['qits-cd deployment pins: connection refused'],
@@ -223,7 +263,7 @@ describe('CleanupPage', () => {
 
   it('arms on the first press and sends nothing, then sends exactly one POST on the second', async () => {
     await open();
-    flushPlan();
+    await flushPlan();
     await settle();
 
     press('Run this cleanup');
@@ -237,9 +277,9 @@ describe('CleanupPage', () => {
     press('Delete 1 identity');
     await settle();
 
-    const request = http.expectOne('/artifacts/api/gc/repositories/npm/sweep');
+    const request = http.expectOne(`${ORCHESTRATOR}/npm/sweep`);
     expect(request.request.method).toBe('POST');
-    // No credential: this application has never sent one, and the guard is the service's.
+    // No machine token: the bearer is the interceptor's, and the guard is qits-orchestrator's.
     expect(request.request.headers.has('X-Artifacts-Token')).toBe(false);
     request.flush(receipt());
     await settle();
@@ -250,14 +290,14 @@ describe('CleanupPage', () => {
 
   it('replaces the plan with the receipt once a run has happened', async () => {
     await open();
-    flushPlan();
+    await flushPlan();
     await settle();
 
     press('Run this cleanup');
     await settle();
     press('Delete 1 identity');
     await settle();
-    http.expectOne('/artifacts/api/gc/repositories/npm/sweep').flush(receipt());
+    http.expectOne(`${ORCHESTRATOR}/npm/sweep`).flush(receipt());
     await settle();
 
     expect(text()).toContain('What the run did');
@@ -269,7 +309,7 @@ describe('CleanupPage', () => {
 
     press('Re-read the plan');
     await settle();
-    flushPlan(
+    await flushPlan(
       plan({ dead: [], kept: [], sweep: { ...plan().sweep, blobCount: 0, reclaimableBytes: 0 } }),
     );
     await settle();
@@ -280,14 +320,14 @@ describe('CleanupPage', () => {
 
   it('renders an aborted receipt as what it is: nothing deleted, and why', async () => {
     await open();
-    flushPlan();
+    await flushPlan();
     await settle();
 
     press('Run this cleanup');
     await settle();
     press('Delete 1 identity');
     await settle();
-    http.expectOne('/artifacts/api/gc/repositories/npm/sweep').flush(
+    http.expectOne(`${ORCHESTRATOR}/npm/sweep`).flush(
       receipt({
         aborted:
           'the run was aborted before anything was deleted: qits-ci daemon pin: connection refused',
@@ -309,32 +349,106 @@ describe('CleanupPage', () => {
     expect(text()).toContain('qits-ci daemon pin');
   });
 
-  it('names the token and the caller that holds it when the run is guarded', async () => {
-    await open();
-    flushPlan();
-    await settle();
-
-    press('Run this cleanup');
-    await settle();
-    press('Delete 1 identity');
-    await settle();
+  it('says a gc run is active in the service’s own words, and that nothing was deleted', async () => {
+    await pressRun();
     http
-      .expectOne('/artifacts/api/gc/repositories/npm/sweep')
+      .expectOne(`${ORCHESTRATOR}/npm/sweep`)
       .flush(
-        { message: 'Missing or invalid X-Artifacts-Token' },
-        { status: 401, statusText: 'Unauthorized' },
+        { message: 'a gc run is already active: 7f3c' },
+        { status: 409, statusText: 'Conflict' },
       );
     await settle();
 
-    expect(text()).toContain('X-Artifacts-Token');
-    expect(text()).toContain('from a shell');
+    expect(text()).toContain('The cleanup did not run — 409 a gc run is already active: 7f3c.');
     expect(text()).toContain('Nothing was deleted.');
+    expect(text()).not.toContain('X-Artifacts-Token');
     expect(text()).toContain('Would be deleted'); // the plan is still on screen
+  });
+
+  it('does not claim nothing was deleted when no receipt came back', async () => {
+    // A 502 is qits-orchestrator failing to get qits-artifacts' answer, which can be an answer lost
+    // after the sweep began. The page says what it knows: the message, and to re-read.
+    await pressRun();
+    http
+      .expectOne(`${ORCHESTRATOR}/npm/sweep`)
+      .flush(
+        { message: 'qits-artifacts could not be asked: timed out' },
+        { status: 502, statusText: 'Bad Gateway' },
+      );
+    await settle();
+
+    expect(text()).toContain('502 qits-artifacts could not be asked: timed out');
+    expect(text()).toContain('re-read the plan');
+    expect(text()).not.toContain('Nothing was deleted.');
+  });
+
+  it('shows the tunnel hint and no run when qits-orchestrator cannot be reached', async () => {
+    // A browser off the tunnel: the public edge's refusal carries no CORS headers, so the read
+    // fails as a network error. There is no plan to review, so there is nothing to press.
+    await open();
+    await settle();
+    http
+      .expectOne(`${ORCHESTRATOR}/npm/plan`)
+      .error(new ProgressEvent('error'), { status: 0, statusText: '' });
+    await settle();
+
+    expect(text()).toContain(QITS_PRIVATE_APP_HINT);
+    expect(text()).toContain('Nothing was deleted');
+    expect(text()).not.toContain('Could not load the cleanup plan');
+    expect(text()).not.toContain('Run this cleanup');
+    expect(text()).not.toContain('Would be deleted');
+  });
+
+  it('reads the public edge’s own 404 as unreachable, not as no such repository', async () => {
+    await open();
+    await settle();
+    http
+      .expectOne(`${ORCHESTRATOR}/npm/plan`)
+      .flush('`orchestrator` is not an application this edge routes. Configured: [ci]\n', {
+        status: 404,
+        statusText: 'Not Found',
+      });
+    await settle();
+
+    expect(text()).toContain(QITS_PRIVATE_APP_HINT);
+    expect(text()).not.toContain('Could not load the cleanup plan');
+  });
+
+  it('hides the run once the sweep itself finds qits-orchestrator unreachable', async () => {
+    await pressRun();
+    http
+      .expectOne(`${ORCHESTRATOR}/npm/sweep`)
+      .flush('`orchestrator` is not an application this edge routes. Configured: [ci]\n', {
+        status: 404,
+        statusText: 'Not Found',
+      });
+    await settle();
+
+    expect(text()).toContain(QITS_PRIVATE_APP_HINT);
+    expect(text()).toContain('Nothing was deleted.');
+    expect(
+      Array.from(page().querySelectorAll('button')).some((button) =>
+        (button.textContent ?? '').includes('Delete'),
+      ),
+    ).toBe(false);
+  });
+
+  it('does not claim nothing was deleted when the sweep fails as a network error', async () => {
+    // The plan arrived, so the tunnel was up a moment ago; a network error now cannot tell a
+    // request that never left from an answer cut off on the way back.
+    await pressRun();
+    http.expectOne(`${ORCHESTRATOR}/npm/sweep`).error(new ProgressEvent('error'), { status: 0 });
+    await settle();
+
+    expect(text()).toContain('No receipt came back');
+    expect(text()).toContain(QITS_PRIVATE_APP_HINT);
+    expect(text()).not.toContain('Nothing was deleted.');
+    expect(text()).not.toContain('Run this cleanup');
   });
 
   it('says a repository nobody collects is not collected, and offers no run', async () => {
     await open('clips');
-    flushPlan(
+    await flushPlan(
       plan({
         repository: 'clips',
         type: 'ci-videos',
@@ -353,9 +467,12 @@ describe('CleanupPage', () => {
   });
 
   it('reports a repository that does not exist rather than drawing an empty plan', async () => {
+    // qits-artifacts' 404, handed on verbatim by qits-orchestrator: a real "no such repository",
+    // and not the tunnel hint — the envelope is JSON, not the edge's sentence.
     await open('nope');
+    await settle();
     http
-      .expectOne('/artifacts/api/gc/repositories/nope/plan')
+      .expectOne(`${ORCHESTRATOR}/nope/plan`)
       .flush(
         { message: 'No such artifacts repository: nope' },
         { status: 404, statusText: 'Not Found' },
@@ -365,5 +482,6 @@ describe('CleanupPage', () => {
     expect(text()).toContain('Could not load the cleanup plan');
     expect(text()).toContain('No such artifacts repository');
     expect(text()).not.toContain('Would be deleted');
+    expect(text()).not.toContain(QITS_PRIVATE_APP_HINT);
   });
 });
