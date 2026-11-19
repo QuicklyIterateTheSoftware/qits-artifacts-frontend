@@ -4,7 +4,6 @@ import {
   formatBytes,
   formatDayTime,
   formatInstant,
-  isCommitSha,
   itemNoun,
   plural,
   shortDigest,
@@ -32,24 +31,6 @@ describe('formatBytes', () => {
     expect(formatBytes(null)).toBe(UNKNOWN_SIZE);
     expect(formatBytes(undefined)).toBe(UNKNOWN_SIZE);
     expect(formatBytes(Number.NaN)).toBe(UNKNOWN_SIZE);
-  });
-});
-
-describe('isCommitSha', () => {
-  it('accepts the full 40-hex form qits-cd usually tags with', () => {
-    expect(isCommitSha('9f96484aa1c0d1e2f3a4b5c6d7e8f90123456789')).toBe(true);
-  });
-
-  it('accepts the abbreviated form, because qits-observability carries both', () => {
-    expect(isCommitSha('9f96484')).toBe(true);
-    expect(isCommitSha('9f96484aa1c0')).toBe(true);
-  });
-
-  it('rejects the tags that are plainly not commits', () => {
-    expect(isCommitSha('latest')).toBe(false);
-    expect(isCommitSha('0.0.4')).toBe(false);
-    expect(isCommitSha('9F96484')).toBe(false);
-    expect(isCommitSha('9f9648')).toBe(false);
   });
 });
 

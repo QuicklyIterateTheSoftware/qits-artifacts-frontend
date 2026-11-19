@@ -125,21 +125,6 @@ describe('ArtifactsApi', () => {
     await expect(images).rejects.toMatchObject({ status: 404 });
   });
 
-  it('unwraps an image’s tags, digest and per-manifest size included', async () => {
-    const tags = api.tags('qits', 'qits-ci');
-    http.expectOne('/artifacts/api/repositories/qits/images/qits-ci/tags').flush({
-      tags: [
-        {
-          tag: '9f96484aa1c0d1e2f3a4b5c6d7e8f90123456789',
-          digest: 'sha256:abc',
-          sizeBytes: 512,
-          createdAt: '2026-07-31T14:06:23Z',
-        },
-      ],
-    });
-    await expect(tags).resolves.toMatchObject([{ digest: 'sha256:abc', sizeBytes: 512 }]);
-  });
-
   it('encodes inclusive artifact filters and preserves nullable access times', async () => {
     const records = api.artifactRecords('ci-videos', {
       accessedBefore: '2026-08-01T00:00:00Z',
@@ -170,31 +155,6 @@ describe('ArtifactsApi', () => {
       ],
     });
     await expect(records).resolves.toMatchObject([{ accessedAt: null }]);
-  });
-
-  it('filters tags and lists untagged manifests for cleanup', async () => {
-    const tags = api.tags('qits', 'app', { accessedAfter: '2026-07-01T00:00:00Z' });
-    const tagRequest = http.expectOne((candidate) => candidate.url.endsWith('/tags'));
-    expect(tagRequest.request.params.get('accessed-after')).toBe('2026-07-01T00:00:00Z');
-    tagRequest.flush({ tags: [] });
-    await expect(tags).resolves.toEqual([]);
-
-    const manifests = api.manifests('qits', 'app', { neverAccessed: true });
-    const manifestRequest = http.expectOne((candidate) => candidate.url.endsWith('/manifests'));
-    expect(manifestRequest.request.params.get('never-accessed')).toBe('true');
-    manifestRequest.flush({
-      manifests: [
-        {
-          digest: 'sha256:abc',
-          mediaType: 'application/vnd.oci.image.manifest.v1+json',
-          sizeBytes: 1,
-          createdAt: '2026-07-01T00:00:00Z',
-          accessedAt: null,
-          tags: [],
-        },
-      ],
-    });
-    await expect(manifests).resolves.toMatchObject([{ tags: [], accessedAt: null }]);
   });
 
   it('unwraps the packages of an npm repository', async () => {

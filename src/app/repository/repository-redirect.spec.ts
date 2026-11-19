@@ -13,12 +13,13 @@ import { LANDING_ORIGIN_WAIT_MS, RepositoryRedirect } from './repository-redirec
 const LANDING_ORIGIN = 'https://landing.qits.example';
 
 /**
- * `repositories/:repo` is one entry inside `OWN`, mounted three times — bare, under a project and
- * under a repository — and since qits-2316 all three reach this component rather than
- * `RepositoryPage`. The point of this group is that the hand-off actually happens in every
- * spelling, through real routing rather than a stubbed `ActivatedRoute`: `app.routes.spec.ts`
+ * `repositories/:repo` and `repositories/:repo/images/:image` are each one entry inside `OWN`,
+ * mounted three times — bare, under a project and under a repository — and since qits-2316
+ * (repo) and qits-2324 (image) all three reach this one component rather than `RepositoryPage` or
+ * `ImagePage`. The point of this group is that the hand-off actually happens in every spelling, of
+ * either mount, through real routing rather than a stubbed `ActivatedRoute`: `app.routes.spec.ts`
  * never instantiates a component (there is no `RouterOutlet` there), so this is the only place a
- * wrong param on one of the three mounts would show up.
+ * wrong param on one of the spellings would show up.
  */
 describe('RepositoryRedirect', () => {
   describe('reached through routing', () => {
@@ -69,6 +70,51 @@ describe('RepositoryRedirect', () => {
       await harness.navigateByUrl('/repositories/a%2Fb');
       await vi.waitFor(() => expect(navigateAway).toHaveBeenCalled());
       expect(navigateAway).toHaveBeenCalledWith(`${LANDING_ORIGIN}/artifacts/repositories/a%2Fb`);
+    });
+
+    /**
+     * `repositories/:repo/images/:image`, the qits-2324 counterpart to the group above: the same
+     * route object, mounted the same three times, now carrying an `image` param as well.
+     */
+    describe('the image route', () => {
+      it('hands the bare spelling off to the landing app’s image page', async () => {
+        await harness.navigateByUrl('/repositories/qits/images/qits-ci');
+        await vi.waitFor(() => expect(navigateAway).toHaveBeenCalled());
+        expect(navigateAway).toHaveBeenCalledWith(
+          `${LANDING_ORIGIN}/artifacts/repositories/qits/images/qits-ci`,
+        );
+      });
+
+      it('hands the project spelling off the same way', async () => {
+        await harness.navigateByUrl('/qits/repositories/qits/images/qits-ci');
+        await vi.waitFor(() => expect(navigateAway).toHaveBeenCalled());
+        expect(navigateAway).toHaveBeenCalledWith(
+          `${LANDING_ORIGIN}/artifacts/repositories/qits/images/qits-ci`,
+        );
+      });
+
+      it('hands the repository spelling off the same way', async () => {
+        await harness.navigateByUrl(
+          '/qits/qits-artifacts/qits-artifacts-service/repositories/qits/images/qits-ci',
+        );
+        await vi.waitFor(() => expect(navigateAway).toHaveBeenCalled());
+        expect(navigateAway).toHaveBeenCalledWith(
+          `${LANDING_ORIGIN}/artifacts/repositories/qits/images/qits-ci`,
+        );
+      });
+
+      /**
+       * An image name is one path segment no matter what it contains, the same rule as a scoped
+       * repository name above: `%2F` survives as a literal slash inside the `image` param rather
+       * than splitting it into two segments, and `encodeURIComponent` puts it back on the way out.
+       */
+      it('escapes a slashed image name on the way out, one segment round trip', async () => {
+        await harness.navigateByUrl('/repositories/qits/images/build-images%2Fci-base');
+        await vi.waitFor(() => expect(navigateAway).toHaveBeenCalled());
+        expect(navigateAway).toHaveBeenCalledWith(
+          `${LANDING_ORIGIN}/artifacts/repositories/qits/images/build-images%2Fci-base`,
+        );
+      });
     });
   });
 

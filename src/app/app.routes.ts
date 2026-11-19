@@ -3,7 +3,6 @@ import { QitsMainLayout, QITS_CATEGORIES, type QitsCategory } from '@qits/ui-com
 import { CleanupPage } from './cleanup/cleanup-page';
 import { DaemonPage } from './daemon/daemon-page';
 import { DocsPage } from './docs/docs-page';
-import { ImagePage } from './image/image-page';
 import { NotFound } from './not-found/not-found';
 import { PackagePage } from './package/package-page';
 import { MavenPage } from './maven/maven-page';
@@ -21,14 +20,14 @@ import { RepositoryRedirect } from './repository/repository-redirect';
  * — is produced by qits-cd from a deploy plan's application name and merely coincides, and it
  * coincides for the slug-named repositories and for no npm package at all. A project-first tree
  * here would therefore be a tree of guesses. The real cross-store link is a tag that happens to be
- * a commit sha, and the image page offers *that* as a link out to the CI explorer — one click,
- * rather than a fiction in the URL structure.
+ * a commit sha; the one click out to the CI explorer that offered it lived on this application's
+ * own image page until qits-2324 handed that route to the landing app too (see below).
  *
  * **Every level that costs a request is a path segment.** spa-ci carries its expansion in query
  * parameters because its levels are nested inside one screen; here each level is its own page, so
  * the path is already the state — the strongest form of the same rule, and one that makes every
- * level bookmarkable and back-button-correct without any code. The only local signals in this app
- * are for toggles that cost nothing: the summary's explanation and the image page's full digests.
+ * level bookmarkable and back-button-correct without any code. The one local signal left in this
+ * app that costs nothing is the summary's explanation toggle.
  *
  * **The npm package segment carries a scope.** `@qits/ui-components` has a slash in it that is not
  * a separator; Angular's serialiser encodes it to `%2F` when a `routerLink` builds the URL and
@@ -48,18 +47,20 @@ import { RepositoryRedirect } from './repository/repository-redirect';
  * The `**` route sits inside the layout: this application owns the whole of its own host, so an
  * unknown URL is an ordinary 404 and is drawn with the chrome around it.
  *
- * **`repositories/:repo` is the one exception, since qits-2316.** It no longer draws
- * `RepositoryPage` here at all; it hands the reader to the landing app's own address for that
- * repository instead (`RepositoryRedirect`). Because it is one entry inside `OWN` rather than a
- * route spelled out separately for each mount, the hand-off reaches all three spellings — bare,
- * under a project, under a repository — with the one change below. The other seven stay exactly as
- * they were.
+ * **Two of the eight are exceptions now: `repositories/:repo` since qits-2316, and
+ * `repositories/:repo/images/:image` since qits-2324.** Neither draws a page of its own content
+ * here any more — `RepositoryPage` and `ImagePage` are both gone; each instead hands the reader to
+ * the landing app's own address for that repository or that image, through the one shared
+ * `RepositoryRedirect`, which reads whichever of `repo`/`image` its own matched route carries.
+ * Because each is one entry inside `OWN` rather than a route spelled out separately for each mount,
+ * the hand-off reaches all three spellings — bare, under a project, under a repository — with the
+ * one change below. The other six stay exactly as they were.
  */
 const OWN: Routes = [
   { path: '', component: RepositoriesPage },
   { path: 'repositories/:repo', component: RepositoryRedirect },
   { path: 'repositories/:repo/cleanup', component: CleanupPage },
-  { path: 'repositories/:repo/images/:image', component: ImagePage },
+  { path: 'repositories/:repo/images/:image', component: RepositoryRedirect },
   { path: 'repositories/:repo/packages/:package', component: PackagePage },
   { path: 'repositories/:repo/maven-packages/:coordinate', component: MavenPage },
   { path: 'repositories/:repo/daemons/:daemon', component: DaemonPage },
@@ -109,10 +110,11 @@ export const isRepositoryAddress: CanMatchFn = (_route, segments: UrlSegment[]) 
  * closes the list.
  *
  * The pages read `inject(QITS_SCOPE).scope()` rather than these three params. A page that read them
- * would work in one spelling and be blank in the others. `RepositoryRedirect` is the one exception:
- * it reads its own route's `repo` param directly rather than the scope, because all three spellings
- * share the same `OWN` route object and so already carry that param on the matched route itself —
- * there is nothing a scope would add.
+ * would work in one spelling and be blank in the others. `RepositoryRedirect` is the exception, at
+ * both of its mounts: it reads its own route's `repo` (and, under `images/:image`, `image`) params
+ * directly rather than the scope, because all three spellings of a given mount share the same `OWN`
+ * route object and so already carry those params on the matched route itself — there is nothing a
+ * scope would add.
  */
 export const routes: Routes = [
   {

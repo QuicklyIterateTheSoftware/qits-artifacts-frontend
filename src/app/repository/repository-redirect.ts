@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, type ParamMap } from '@angular/router';
 import { QitsAppLinks } from '@qits/ui-components';
 import { NAVIGATE_AWAY } from '../ui/navigate-away';
 
@@ -38,33 +38,55 @@ async function landingOrigin(links: QitsAppLinks): Promise<string> {
 }
 
 /**
- * `repositories/:repo` — all three spellings `OWN` mounts it under (bare, under a project, under
- * `:project/:group/:repository`), none of them drawing `RepositoryPage` here any more.
+ * The landing app's own path for whatever this route's matched params carry: `repo` alone for
+ * `repositories/:repo`, `repo` and `image` together for `repositories/:repo/images/:image`. Both
+ * mounts share the one `RepositoryRedirect` below, so the params on the matched route are exactly
+ * the params this builds from — there is never a third shape to account for.
+ */
+function landingPath(params: ParamMap): string {
+  const repo = encodeURIComponent(params.get('repo') ?? '');
+  const image = params.get('image');
+  return image === null
+    ? `/artifacts/repositories/${repo}`
+    : `/artifacts/repositories/${repo}/images/${encodeURIComponent(image)}`;
+}
+
+/**
+ * `repositories/:repo` and `repositories/:repo/images/:image` — each one entry inside `OWN`,
+ * mounted three times (bare, under a project, under `:project/:group/:repository`), none of them
+ * drawing `RepositoryPage` or `ImagePage` here any more (qits-2316, qits-2324).
  *
  * It draws almost nothing of its own: a line for the moment between mounting and the hand-off.
- * `/repositories/<repo>` used to open this application's own page for that repository; this
- * component instead performs a full-document hand-off to the landing app's own address for it,
- * `<landing origin>/artifacts/repositories/<repo>`, through {@link NAVIGATE_AWAY} rather than the
- * router: the destination is a different Angular application, and a `routerLink` would compile and
- * go nowhere.
+ * `/repositories/<repo>` and `/repositories/<repo>/images/<image>` used to open this application's
+ * own pages for that repository or that image; this component instead performs a full-document
+ * hand-off to the landing app's own address for whichever one matched —
+ * `<landing origin>/artifacts/repositories/<repo>` or
+ * `<landing origin>/artifacts/repositories/<repo>/images/<image>` — through {@link NAVIGATE_AWAY}
+ * rather than the router: the destination is a different Angular application, and a `routerLink`
+ * would compile and go nowhere.
  *
- * The `repo` param is read off **this route's own** `ActivatedRoute`, not a parent's and not
- * `QITS_SCOPE`: all three spellings share this one route object (`OWN`'s `repositories/:repo`
- * entry, mounted three times), so the param that route itself captures is already the right one in
- * every spelling, with no scope resolution needed to find it.
+ * The params are read off **this route's own** `ActivatedRoute`, not a parent's and not
+ * `QITS_SCOPE`: all three spellings of each mount share one route object (the matching `OWN`
+ * entry, mounted three times), so whatever that route itself captures is already the right value
+ * in every spelling, with no scope resolution needed to find it.
  */
 @Component({
   selector: 'app-repository-redirect',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  template: `<p>Opening this repository in the landing app…</p>`,
+  template: `<p>Opening this {{ noun }} in the landing app…</p>`,
 })
 export class RepositoryRedirect {
+  private readonly route = inject(ActivatedRoute);
+
+  /** Which noun the message above names, decided once off this route's own matched params. */
+  protected readonly noun = this.route.snapshot.paramMap.has('image') ? 'image' : 'repository';
+
   constructor() {
-    const repo = inject(ActivatedRoute).snapshot.paramMap.get('repo') ?? '';
+    const path = landingPath(this.route.snapshot.paramMap);
     const links = inject(QitsAppLinks);
     const navigateAway = inject(NAVIGATE_AWAY);
     void landingOrigin(links).then((origin) => {
-      navigateAway(`${origin.replace(/\/+$/, '')}/artifacts/repositories/${encodeURIComponent(repo)}`);
+      navigateAway(`${origin.replace(/\/+$/, '')}${path}`);
     });
   }
 }

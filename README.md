@@ -11,8 +11,8 @@ host** (`registry.<env>.<domain>`) through Quinoa. Eight pages, and almost all o
   Maven coordinates, daemons, documentation sites, or the CI record table.
 - **`/repositories/<repo>/cleanup`** — what collecting that repository would delete, what it would
   keep and why each, and the one press in this application that deletes bytes.
-- **`/repositories/<repo>/images/<image>`** — an image's tags and the manifest each points at, led
-  by the per-image union.
+- **`/repositories/<repo>/images/<image>`** — hands off to the landing app's own address for that
+  image, the same way `/repositories/<repo>` does (qits-2316, qits-2324).
 - **`/repositories/<repo>/packages/<package>`** — a package's versions.
 - **`/repositories/<repo>/maven-packages/<coordinate>`** — a coordinate's versions and the files
   each deploys.
@@ -30,9 +30,10 @@ in scope the front page leads with the image that repository publishes — `qits
 by filtering every registry in the store — above the whole-store table, and says plainly that the
 name is a convention rather than a key.
 
-Every in-app link goes through `ArtifactsLinks.commands(...)`, which prefixes the scope on screen,
-and the one link out to qits-ci goes through `ArtifactsLinks.ciExplorer(...)`, which asks the
-platform for that application's origin rather than spelling `/ci/`.
+Every in-app link goes through `ArtifactsLinks.commands(...)`, which prefixes the scope on screen.
+The one link out to qits-ci — opened from a sha-tagged image's tag — lived on this application's
+own image page until qits-2324 handed that whole page off to the landing app, the same way
+`/repositories/<repo>` already had been (qits-2316).
 
 The pull-through caches are **not** here. They live in qits-platform-mirror, with their own admin
 UI; this explorer covers what the platform hosts.
@@ -40,11 +41,10 @@ UI; this explorer covers what the platform hosts.
 The tree is **repository-first**, and that is a decision rather than a default. Nothing in this
 store joins to a project: not one column, in any table. An image name equals a git-host repository
 id for the slug-named repositories, but it is derived by qits-cd from a deploy plan's application
-name and merely coincides — and it coincides for no npm package at all. So the join is offered
-where it is real: a tag shaped like a commit sha is a link out to the CI explorer, opened at the
-repository of the same name, with the sha printed for you to match. It is not a link to a run.
-qits-ci addresses a run by its own id and has no lookup from a commit, so a run URL would be one
-this application invented.
+name and merely coincides — and it coincides for no npm package at all. The one real join — a tag
+shaped like a commit sha, linking out to the CI explorer at the repository of the same name —
+lived on this application's own image page; qits-2324 handed that whole page off to the landing
+app, the same way `/repositories/<repo>` already was (qits-2316).
 
 **Every size here is a union, and the UI says which one.** Blobs are content-addressed and
 deduplicated across every repository, so the same content measures 10.63 GiB added up per tag, 4.36

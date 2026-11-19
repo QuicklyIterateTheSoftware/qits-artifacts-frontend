@@ -6,7 +6,6 @@ import { routes } from './app.routes';
 import { CleanupPage } from './cleanup/cleanup-page';
 import { DaemonPage } from './daemon/daemon-page';
 import { DocsPage } from './docs/docs-page';
-import { ImagePage } from './image/image-page';
 import { NotFound } from './not-found/not-found';
 import { RepositoriesPage } from './repositories/repositories-page';
 import { RepositoryRedirect } from './repository/repository-redirect';
@@ -42,9 +41,9 @@ describe('app routes', () => {
     expect(await resolve('/repositories/qits')).toBe(RepositoryRedirect);
     expect(await resolve('/qits/services/qits-ci/repositories/qits')).toBe(RepositoryRedirect);
 
-    expect(await resolve('/repositories/qits/images/qits%2Fqits-ci')).toBe(ImagePage);
+    expect(await resolve('/repositories/qits/images/qits%2Fqits-ci')).toBe(RepositoryRedirect);
     expect(await resolve('/qits/images/qits-oci/repositories/qits/images/qits%2Fbase')).toBe(
-      ImagePage,
+      RepositoryRedirect,
     );
 
     expect(await resolve('/repositories/qits/cleanup')).toBe(CleanupPage);
@@ -66,7 +65,7 @@ describe('app routes', () => {
     expect(await resolve('/qits')).toBe(RepositoriesPage);
     expect(await resolve('/qits/repositories/qits')).toBe(RepositoryRedirect);
     expect(await resolve('/qits/repositories/qits/cleanup')).toBe(CleanupPage);
-    expect(await resolve('/qits/repositories/qits/images/qits%2Fbase')).toBe(ImagePage);
+    expect(await resolve('/qits/repositories/qits/images/qits%2Fbase')).toBe(RepositoryRedirect);
     expect(await resolve('/qits/repositories/daemons/daemons/qits-agent')).toBe(DaemonPage);
     expect(await resolve('/qits/repositories/docs/docs/%40userflows%2Fqits-artifacts')).toBe(
       DocsPage,
@@ -109,7 +108,7 @@ describe('app routes', () => {
     );
     expect(
       await resolve('/qits/qits-ci/qits-ci-service/repositories/qits/images/qits%2Fbase'),
-    ).toBe(ImagePage);
+    ).toBe(RepositoryRedirect);
   });
 
   /** A group is never one of this app's own first segments, and a project is never a category. */

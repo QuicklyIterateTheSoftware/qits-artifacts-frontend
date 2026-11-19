@@ -79,40 +79,6 @@ export interface ImagesResponse {
   readonly images: readonly OciImageDto[];
 }
 
-/**
- * One tag of one image, and the manifest it points at.
- *
- * `sizeBytes` is that manifest's referenced bytes — **not additive**. Every rebuild of an image
- * shares its base layers with the tag before it, so a column of these summed is a number nothing
- * in the store corresponds to. The template labels it and never totals it.
- */
-export interface OciTagDto {
-  readonly tag: string;
-  readonly digest: string;
-  readonly sizeBytes: number;
-  readonly createdAt: string;
-  /** Null until this tag's manifest has been read. */
-  readonly accessedAt: string | null;
-}
-
-export interface TagsResponse {
-  readonly tags: readonly OciTagDto[];
-}
-
-/** One OCI manifest, including manifests no tag currently names. */
-export interface OciManifestDto {
-  readonly digest: string;
-  readonly mediaType: string;
-  readonly sizeBytes: number;
-  readonly createdAt: string;
-  readonly accessedAt: string | null;
-  readonly tags: readonly string[];
-}
-
-export interface ManifestsResponse {
-  readonly manifests: readonly OciManifestDto[];
-}
-
 /** A directly uploaded CI artifact. `metadata` remains deliberately flat and type-specific. */
 export interface ArtifactRecordDto {
   readonly id: string;

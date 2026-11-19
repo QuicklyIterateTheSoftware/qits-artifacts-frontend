@@ -9,10 +9,6 @@
  * it can at least be read; the *kind* of figure it is — union, per-image, per-tag — is the
  * template's job to say beside it, and every template here does.
  *
- * **`isCommitSha` is a guess, and it is labelled as one wherever it is used.** `oci_tag.tag` is
- * undeclared: nothing in the schema says a tag is a commit, the platform's images simply tag that
- * way. So the test is on the shape of the string and nothing else.
- *
  * Every timestamp is rendered in **UTC**, as in spa-ci and spa-cd: the services stamp `Instant`s,
  * and a browser-local rendering would make two people looking at the same manifest disagree about
  * when it was pushed.
@@ -134,21 +130,6 @@ export function itemNoun(type: string): string {
     default:
       return 'record';
   }
-}
-
-/**
- * A tag that looks like a git commit — full 40-hex, or one of the abbreviations git itself hands
- * out. qits-observability carries both forms, which is the reason for the range rather than an
- * exact length.
- *
- * Seven is git's own floor for an abbreviation, and it is the floor here too. It is still only a
- * shape test: `1234567` is a plausible version string as well as a plausible sha, so what this
- * enables in the UI is an offer to go looking, never a claim that a run exists.
- */
-const COMMIT_SHA = /^[0-9a-f]{7,40}$/;
-
-export function isCommitSha(tag: string): boolean {
-  return COMMIT_SHA.test(tag);
 }
 
 /** The first seven characters of a sha, as git itself abbreviates. Shorter tags are left alone. */

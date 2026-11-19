@@ -20,7 +20,6 @@ import type {
   GcRepositoryPlanReportDto,
   GcRepositorySweepReportDto,
   ImagesResponse,
-  ManifestsResponse,
   MavenPackageDto,
   MavenPackagesResponse,
   MavenVersionDto,
@@ -28,12 +27,9 @@ import type {
   NpmPackageDto,
   NpmVersionDto,
   OciImageDto,
-  OciManifestDto,
-  OciTagDto,
   PackagesResponse,
   RepositoriesResponse,
   StoreSummaryDto,
-  TagsResponse,
   VersionsResponse,
 } from './dto';
 
@@ -158,23 +154,6 @@ export class ArtifactsApi {
     return response.images;
   }
 
-  /** One image's tags, each with the manifest it points at. The sizes here are per-manifest and
-   * must not be added; see {@link OciTagDto}. */
-  async tags(
-    repository: string,
-    image: string,
-    filters: ArtifactFilters = {},
-  ): Promise<readonly OciTagDto[]> {
-    const response = await firstValueFrom(
-      this.http.get<TagsResponse>(
-        `${this.base}/artifacts/api/repositories/${encodeURIComponent(repository)}` +
-          `/images/${encodeURIComponent(image)}/tags`,
-        { params: filterParams(filters) },
-      ),
-    );
-    return response.tags;
-  }
-
   /** Direct CI uploads. Other repository types use their protocol-aware listing instead. */
   async artifactRecords(
     repository: string,
@@ -187,22 +166,6 @@ export class ArtifactsApi {
       ),
     );
     return response.records;
-  }
-
-  /** Every manifest, including displaced and index-child manifests with no current tag. */
-  async manifests(
-    repository: string,
-    image: string,
-    filters: ArtifactFilters = {},
-  ): Promise<readonly OciManifestDto[]> {
-    const response = await firstValueFrom(
-      this.http.get<ManifestsResponse>(
-        `${this.base}/artifacts/api/repositories/${encodeURIComponent(repository)}` +
-          `/images/${encodeURIComponent(image)}/manifests`,
-        { params: filterParams(filters) },
-      ),
-    );
-    return response.manifests;
   }
 
   /** The packages of an npm repository, hosted or proxied — the same endpoint for both, because
