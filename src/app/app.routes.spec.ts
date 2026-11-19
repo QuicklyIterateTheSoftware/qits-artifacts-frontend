@@ -9,7 +9,7 @@ import { DocsPage } from './docs/docs-page';
 import { ImagePage } from './image/image-page';
 import { NotFound } from './not-found/not-found';
 import { RepositoriesPage } from './repositories/repositories-page';
-import { RepositoryPage } from './repository/repository-page';
+import { RepositoryRedirect } from './repository/repository-redirect';
 
 /**
  * Every page is addressable three times — its own path, the same path under a project, and the same
@@ -39,8 +39,8 @@ describe('app routes', () => {
     expect(await resolve('/')).toBe(RepositoriesPage);
     expect(await resolve('/qits/services/qits-ci')).toBe(RepositoriesPage);
 
-    expect(await resolve('/repositories/qits')).toBe(RepositoryPage);
-    expect(await resolve('/qits/services/qits-ci/repositories/qits')).toBe(RepositoryPage);
+    expect(await resolve('/repositories/qits')).toBe(RepositoryRedirect);
+    expect(await resolve('/qits/services/qits-ci/repositories/qits')).toBe(RepositoryRedirect);
 
     expect(await resolve('/repositories/qits/images/qits%2Fqits-ci')).toBe(ImagePage);
     expect(await resolve('/qits/images/qits-oci/repositories/qits/images/qits%2Fbase')).toBe(
@@ -64,7 +64,7 @@ describe('app routes', () => {
   it('serves every own page under a project as well', async () => {
     // `/qits` is where the chrome's project picker sends this app when a reader picks `qits`.
     expect(await resolve('/qits')).toBe(RepositoriesPage);
-    expect(await resolve('/qits/repositories/qits')).toBe(RepositoryPage);
+    expect(await resolve('/qits/repositories/qits')).toBe(RepositoryRedirect);
     expect(await resolve('/qits/repositories/qits/cleanup')).toBe(CleanupPage);
     expect(await resolve('/qits/repositories/qits/images/qits%2Fbase')).toBe(ImagePage);
     expect(await resolve('/qits/repositories/daemons/daemons/qits-agent')).toBe(DaemonPage);
@@ -94,7 +94,7 @@ describe('app routes', () => {
    * the project form as much as against the repository one.
    */
   it('reads a literal first segment as this app own page, not as a project', async () => {
-    expect(await resolve('/repositories/npm')).toBe(RepositoryPage);
+    expect(await resolve('/repositories/npm')).toBe(RepositoryRedirect);
     expect(await resolve('/repositories/npm/cleanup')).toBe(CleanupPage);
   });
 
@@ -105,7 +105,7 @@ describe('app routes', () => {
   it('serves every own page under a repository addressed by its component', async () => {
     expect(await resolve('/qits/qits-artifacts/qits-artifacts-service')).toBe(RepositoriesPage);
     expect(await resolve('/qits/qits-artifacts/qits-artifacts-service/repositories/npm')).toBe(
-      RepositoryPage,
+      RepositoryRedirect,
     );
     expect(
       await resolve('/qits/qits-ci/qits-ci-service/repositories/qits/images/qits%2Fbase'),
@@ -115,7 +115,7 @@ describe('app routes', () => {
   /** A group is never one of this app's own first segments, and a project is never a category. */
   it('does not read this app own segments as a scope', async () => {
     // `repositories` in the middle is this app's page under a project, not a group.
-    expect(await resolve('/qits/repositories/npm')).toBe(RepositoryPage);
+    expect(await resolve('/qits/repositories/npm')).toBe(RepositoryRedirect);
     // A category in segment one is no project, and the rest matches no page of ours.
     expect(await resolve('/services/qits-ci/repositories')).toBe(NotFound);
     expect(await resolve('/nothing/here/at/all')).toBe(NotFound);

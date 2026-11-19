@@ -8,7 +8,7 @@ import { NotFound } from './not-found/not-found';
 import { PackagePage } from './package/package-page';
 import { MavenPage } from './maven/maven-page';
 import { RepositoriesPage } from './repositories/repositories-page';
-import { RepositoryPage } from './repository/repository-page';
+import { RepositoryRedirect } from './repository/repository-redirect';
 
 /**
  * Eight pages, all of them inside the platform chrome, and the drill-down is **repository-first**.
@@ -47,10 +47,17 @@ import { RepositoryPage } from './repository/repository-page';
  *
  * The `**` route sits inside the layout: this application owns the whole of its own host, so an
  * unknown URL is an ordinary 404 and is drawn with the chrome around it.
+ *
+ * **`repositories/:repo` is the one exception, since qits-2316.** It no longer draws
+ * `RepositoryPage` here at all; it hands the reader to the landing app's own address for that
+ * repository instead (`RepositoryRedirect`). Because it is one entry inside `OWN` rather than a
+ * route spelled out separately for each mount, the hand-off reaches all three spellings — bare,
+ * under a project, under a repository — with the one change below. The other seven stay exactly as
+ * they were.
  */
 const OWN: Routes = [
   { path: '', component: RepositoriesPage },
-  { path: 'repositories/:repo', component: RepositoryPage },
+  { path: 'repositories/:repo', component: RepositoryRedirect },
   { path: 'repositories/:repo/cleanup', component: CleanupPage },
   { path: 'repositories/:repo/images/:image', component: ImagePage },
   { path: 'repositories/:repo/packages/:package', component: PackagePage },
@@ -102,7 +109,10 @@ export const isRepositoryAddress: CanMatchFn = (_route, segments: UrlSegment[]) 
  * closes the list.
  *
  * The pages read `inject(QITS_SCOPE).scope()` rather than these three params. A page that read them
- * would work in one spelling and be blank in the others.
+ * would work in one spelling and be blank in the others. `RepositoryRedirect` is the one exception:
+ * it reads its own route's `repo` param directly rather than the scope, because all three spellings
+ * share the same `OWN` route object and so already carry that param on the matched route itself —
+ * there is nothing a scope would add.
  */
 export const routes: Routes = [
   {

@@ -27,9 +27,10 @@ import { routes } from './app.routes';
  *   provides (epic qits-543).
  * - `provideQitsBearerSignIn({ clientId: 'qits-spa' })` wires the OIDC authorization-code-with-PKCE
  *   sign-in, the token store, and `/auth/callback` — prepended to the routes below, ahead of every
- *   guard this app might add. The daemon page's version download and the repository page's blob
- *   download are role-guarded routes a plain `<a href>` cannot carry a bearer to, so both fetch
- *   through `QitsBearerFetch.download` instead (`daemon-page.ts`, `repository-page.ts`).
+ *   guard this app might add. The daemon page's version download is a role-guarded route a plain
+ *   `<a href>` cannot carry a bearer to, so it fetches through `QitsBearerFetch.download` instead
+ *   (`daemon-page.ts`). `repositories/:repo`'s own blob download moved with the rest of that page
+ *   to the landing app (qits-2316); `RepositoryRedirect` does not need this sign-in at all.
  * - `provideQitsNavigation` gives `QitsMainLayout` its left navigation, by asking the gateway for
  *   `/main-navigation` once at startup. The list is the gateway's answer now — derived from the
  *   routes it actually serves — not a list compiled into @qits/ui-components; without this provider
