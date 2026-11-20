@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
-import { ActivatedRoute, type ParamMap } from '@angular/router';
+import { ActivatedRoute, type Data, type ParamMap } from '@angular/router';
 import { QitsAppLinks } from '@qits/ui-components';
 import { NAVIGATE_AWAY } from '../ui/navigate-away';
 
@@ -38,37 +38,50 @@ async function landingOrigin(links: QitsAppLinks): Promise<string> {
 }
 
 /**
- * The landing app's own path for whatever this route's matched params carry: `repo` alone for
- * `repositories/:repo`, `repo` and `image` together for `repositories/:repo/images/:image`. Both
- * mounts share the one `RepositoryRedirect` below, so the params on the matched route are exactly
- * the params this builds from — there is never a third shape to account for.
+ * The landing app's own path for whatever this route's matched params and data carry: `repo`
+ * alone for `repositories/:repo`, `repo` and `image` together for
+ * `repositories/:repo/images/:image`, `repo` alone again — but marked by `data.landing` — for
+ * `repositories/:repo/cleanup`. All three mounts share the one `RepositoryRedirect` below, so the
+ * params and data on the matched route are exactly what this builds from — there is never a
+ * fourth shape to account for.
+ *
+ * `image` is read first because it is the one case that cannot be mistaken for another: a route
+ * that carries it is `images/:image` and nothing else. `repo` alone is ambiguous between
+ * `repositories/:repo` and `repositories/:repo/cleanup` — both match only on `repo` — which is why
+ * the latter is told apart by its route `data` rather than by a param.
  */
-function landingPath(params: ParamMap): string {
+function landingPath(params: ParamMap, data: Data): string {
   const repo = encodeURIComponent(params.get('repo') ?? '');
   const image = params.get('image');
-  return image === null
-    ? `/artifacts/repositories/${repo}`
-    : `/artifacts/repositories/${repo}/images/${encodeURIComponent(image)}`;
+  if (image !== null) {
+    return `/artifacts/repositories/${repo}/images/${encodeURIComponent(image)}`;
+  }
+  return data['landing'] === 'cleanup'
+    ? `/artifacts/repositories/${repo}/cleanup`
+    : `/artifacts/repositories/${repo}`;
 }
 
 /**
- * `repositories/:repo` and `repositories/:repo/images/:image` — each one entry inside `OWN`,
- * mounted three times (bare, under a project, under `:project/:group/:repository`), none of them
- * drawing `RepositoryPage` or `ImagePage` here any more (qits-2316, qits-2324).
+ * `repositories/:repo`, `repositories/:repo/images/:image` and `repositories/:repo/cleanup` — each
+ * one entry inside `OWN`, mounted three times (bare, under a project, under
+ * `:project/:group/:repository`), none of them drawing `RepositoryPage`, `ImagePage` or
+ * `CleanupPage` here any more (qits-2316, qits-2324, qits-2329).
  *
  * It draws almost nothing of its own: a line for the moment between mounting and the hand-off.
- * `/repositories/<repo>` and `/repositories/<repo>/images/<image>` used to open this application's
- * own pages for that repository or that image; this component instead performs a full-document
- * hand-off to the landing app's own address for whichever one matched —
- * `<landing origin>/artifacts/repositories/<repo>` or
- * `<landing origin>/artifacts/repositories/<repo>/images/<image>` — through {@link NAVIGATE_AWAY}
- * rather than the router: the destination is a different Angular application, and a `routerLink`
- * would compile and go nowhere.
+ * `/repositories/<repo>`, `/repositories/<repo>/images/<image>` and
+ * `/repositories/<repo>/cleanup` used to open this application's own pages for that repository,
+ * that image or that cleanup; this component instead performs a full-document hand-off to the
+ * landing app's own address for whichever one matched —
+ * `<landing origin>/artifacts/repositories/<repo>`,
+ * `<landing origin>/artifacts/repositories/<repo>/images/<image>` or
+ * `<landing origin>/artifacts/repositories/<repo>/cleanup` — through {@link NAVIGATE_AWAY} rather
+ * than the router: the destination is a different Angular application, and a `routerLink` would
+ * compile and go nowhere.
  *
- * The params are read off **this route's own** `ActivatedRoute`, not a parent's and not
- * `QITS_SCOPE`: all three spellings of each mount share one route object (the matching `OWN`
- * entry, mounted three times), so whatever that route itself captures is already the right value
- * in every spelling, with no scope resolution needed to find it.
+ * The params and the data are read off **this route's own** `ActivatedRoute`, not a parent's and
+ * not `QITS_SCOPE`: all three spellings of each mount share one route object (the matching `OWN`
+ * entry, mounted three times), so whatever that route itself captures or carries is already the
+ * right value in every spelling, with no scope resolution needed to find it.
  */
 @Component({
   selector: 'app-repository-redirect',
@@ -78,11 +91,15 @@ function landingPath(params: ParamMap): string {
 export class RepositoryRedirect {
   private readonly route = inject(ActivatedRoute);
 
-  /** Which noun the message above names, decided once off this route's own matched params. */
-  protected readonly noun = this.route.snapshot.paramMap.has('image') ? 'image' : 'repository';
+  /** Which noun the message above names, decided once off this route's own matched params/data. */
+  protected readonly noun = this.route.snapshot.paramMap.has('image')
+    ? 'image'
+    : this.route.snapshot.data['landing'] === 'cleanup'
+      ? 'cleanup'
+      : 'repository';
 
   constructor() {
-    const path = landingPath(this.route.snapshot.paramMap);
+    const path = landingPath(this.route.snapshot.paramMap, this.route.snapshot.data);
     const links = inject(QitsAppLinks);
     const navigateAway = inject(NAVIGATE_AWAY);
     void landingOrigin(links).then((origin) => {
