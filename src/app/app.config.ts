@@ -20,17 +20,19 @@ import { routes } from './app.routes';
  *   segment — so it is what makes each page bookmarkable.
  * - `withFetch` is not a preference. The default XHR backend is invisible to OTLP fetch
  *   instrumentation, so choosing it would quietly forfeit client spans the moment this deployment
- *   grows a telemetry relay. Every call this app's own `ArtifactsApi` makes is a same-origin path
- *   behind the gateway, and these reads carry no credential at all — the artifacts token filter
- *   covers writes only, and this app makes none. `withInterceptors([qitsBearerInterceptor])` is
- *   still added, because the two downloads below need `QitsBearerFetch`, which the same sign-in
- *   provides (epic qits-543).
+ *   grows a telemetry relay. Every call this app's own `ArtifactsApi` makes to qits-artifacts itself
+ *   is a same-origin path behind the gateway and carries no credential at all — the artifacts token
+ *   filter covers writes only, and this app makes none of those. `withInterceptors([qitsBearerInterceptor])`
+ *   is still added, because the cleanup page's three calls to qits-orchestrator (qits-2138) are
+ *   cross-origin and need the reader's bearer, which the same sign-in provides (epic qits-543).
  * - `provideQitsBearerSignIn({ clientId: 'qits-spa' })` wires the OIDC authorization-code-with-PKCE
  *   sign-in, the token store, and `/auth/callback` — prepended to the routes below, ahead of every
- *   guard this app might add. The daemon page's version download is a role-guarded route a plain
- *   `<a href>` cannot carry a bearer to, so it fetches through `QitsBearerFetch.download` instead
- *   (`daemon-page.ts`). `repositories/:repo`'s own blob download moved with the rest of that page
- *   to the landing app (qits-2316); `RepositoryRedirect` does not need this sign-in at all.
+ *   guard this app might add. It once also fed `QitsBearerFetch.download` for two role-guarded
+ *   downloads a plain `<a href>` cannot carry a bearer to: `repositories/:repo`'s own blob download,
+ *   which moved with the rest of that page to the landing app (qits-2316), and the daemon page's
+ *   version download, which followed the same way (qits-2327). Neither page nor `QitsBearerFetch`
+ *   itself is used in this application any more; `RepositoryRedirect`, which replaced both, does not
+ *   need this sign-in at all.
  * - `provideQitsNavigation` gives `QitsMainLayout` its left navigation, by asking the gateway for
  *   `/main-navigation` once at startup. The list is the gateway's answer now — derived from the
  *   routes it actually serves — not a list compiled into @qits/ui-components; without this provider

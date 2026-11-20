@@ -3,7 +3,6 @@ import { provideLocationMocks } from '@angular/common/testing';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { routes } from './app.routes';
-import { DaemonPage } from './daemon/daemon-page';
 import { DocsPage } from './docs/docs-page';
 import { NotFound } from './not-found/not-found';
 import { RepositoriesPage } from './repositories/repositories-page';
@@ -50,9 +49,9 @@ describe('app routes', () => {
       RepositoryRedirect,
     );
 
-    expect(await resolve('/repositories/daemons/daemons/qits-agent')).toBe(DaemonPage);
+    expect(await resolve('/repositories/daemons/daemons/qits-agent')).toBe(RepositoryRedirect);
     expect(await resolve('/qits/services/qits-artifacts/repositories/daemons/daemons/qits-agent')).toBe(
-      DaemonPage,
+      RepositoryRedirect,
     );
 
     expect(await resolve('/repositories/docs/docs/%40userflows%2Fqits-artifacts')).toBe(DocsPage);
@@ -67,7 +66,7 @@ describe('app routes', () => {
     expect(await resolve('/qits/repositories/qits')).toBe(RepositoryRedirect);
     expect(await resolve('/qits/repositories/qits/cleanup')).toBe(RepositoryRedirect);
     expect(await resolve('/qits/repositories/qits/images/qits%2Fbase')).toBe(RepositoryRedirect);
-    expect(await resolve('/qits/repositories/daemons/daemons/qits-agent')).toBe(DaemonPage);
+    expect(await resolve('/qits/repositories/daemons/daemons/qits-agent')).toBe(RepositoryRedirect);
     expect(await resolve('/qits/repositories/docs/docs/%40userflows%2Fqits-artifacts')).toBe(
       DocsPage,
     );

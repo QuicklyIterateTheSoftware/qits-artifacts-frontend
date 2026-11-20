@@ -213,24 +213,6 @@ describe('ArtifactsApi', () => {
     await expect(daemons).resolves.toMatchObject([{ name: 'qits-agent', versionCount: 3 }]);
   });
 
-  it('unwraps a daemon’s versions, digest in the wire spelling and all', async () => {
-    const versions = api.daemonVersions('daemons', 'qits-agent');
-    http.expectOne('/artifacts/api/repositories/daemons/daemons/qits-agent/versions').flush({
-      versions: [
-        {
-          version: '2026.828.202327',
-          digest: 'sha256:0123456789abcdef0123',
-          sizeBytes: 20971520,
-          publishedAt: '2026-08-28T20:23:27Z',
-          accessedAt: null,
-        },
-      ],
-    });
-    await expect(versions).resolves.toMatchObject([
-      { digest: 'sha256:0123456789abcdef0123', accessedAt: null },
-    ]);
-  });
-
   it('unwraps the documentation sites, which arrive under `sites` and not `docs`', async () => {
     const sites = api.docsSites('docs');
     http.expectOne('/artifacts/api/repositories/docs/docs').flush({

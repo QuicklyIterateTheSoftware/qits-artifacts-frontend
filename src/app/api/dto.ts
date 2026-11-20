@@ -173,31 +173,6 @@ export interface DaemonsResponse {
 }
 
 /**
- * One published version of one daemon.
- *
- * `digest` is the wire spelling `sha256:<hex>` — the exact string the download echoes as
- * `Docker-Content-Digest` and the exact string a deployment pins. Shortening it for a table cell is
- * a rendering decision; the value carried here is never anything but what the wire uttered.
- *
- * `sizeBytes` is the row's own and not a union: a daemon version **is** one blob, so there is
- * nothing at this level to double-count. It is still not summed, because the level above it is a
- * union and a column that adds up under a headline that does not is the confusion this whole file
- * exists to prevent.
- */
-export interface DaemonVersionDto {
-  readonly version: string;
-  readonly digest: string;
-  readonly sizeBytes: number;
-  readonly publishedAt: string;
-  /** Null until the version-addressed download has served these bytes — never, not zero. */
-  readonly accessedAt: string | null;
-}
-
-export interface DaemonVersionsResponse {
-  readonly versions: readonly DaemonVersionDto[];
-}
-
-/**
  * One documentation site of a `docs` repository, folded from its published versions.
  *
  * A site name may contain a slash — `@userflows/qits-artifacts` is **one** site rather than a scope

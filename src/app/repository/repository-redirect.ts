@@ -40,21 +40,26 @@ async function landingOrigin(links: QitsAppLinks): Promise<string> {
 /**
  * The landing app's own path for whatever this route's matched params and data carry: `repo`
  * alone for `repositories/:repo`, `repo` and `image` together for
- * `repositories/:repo/images/:image`, `repo` alone again — but marked by `data.landing` — for
- * `repositories/:repo/cleanup`. All three mounts share the one `RepositoryRedirect` below, so the
- * params and data on the matched route are exactly what this builds from — there is never a
- * fourth shape to account for.
+ * `repositories/:repo/images/:image`, `repo` and `daemon` together for
+ * `repositories/:repo/daemons/:daemon`, or `repo` alone again — but marked by `data.landing` — for
+ * `repositories/:repo/cleanup`. All four mounts share the one `RepositoryRedirect` below, so the
+ * params and data on the matched route are exactly what this builds from — there is never a fifth
+ * shape to account for, and no route carries `image` and `daemon` at once.
  *
- * `image` is read first because it is the one case that cannot be mistaken for another: a route
- * that carries it is `images/:image` and nothing else. `repo` alone is ambiguous between
- * `repositories/:repo` and `repositories/:repo/cleanup` — both match only on `repo` — which is why
- * the latter is told apart by its route `data` rather than by a param.
+ * `image` and `daemon` are read first because neither can be mistaken for another shape: a route
+ * that carries one is `images/:image` or `daemons/:daemon` and nothing else. `repo` alone is
+ * ambiguous between `repositories/:repo` and `repositories/:repo/cleanup` — both match only on
+ * `repo` — which is why the latter is told apart by its route `data` rather than by a param.
  */
 function landingPath(params: ParamMap, data: Data): string {
   const repo = encodeURIComponent(params.get('repo') ?? '');
   const image = params.get('image');
+  const daemon = params.get('daemon');
   if (image !== null) {
     return `/artifacts/repositories/${repo}/images/${encodeURIComponent(image)}`;
+  }
+  if (daemon !== null) {
+    return `/artifacts/repositories/${repo}/daemons/${encodeURIComponent(daemon)}`;
   }
   return data['landing'] === 'cleanup'
     ? `/artifacts/repositories/${repo}/cleanup`
@@ -62,18 +67,20 @@ function landingPath(params: ParamMap, data: Data): string {
 }
 
 /**
- * `repositories/:repo`, `repositories/:repo/images/:image` and `repositories/:repo/cleanup` — each
- * one entry inside `OWN`, mounted three times (bare, under a project, under
- * `:project/:group/:repository`), none of them drawing `RepositoryPage`, `ImagePage` or
- * `CleanupPage` here any more (qits-2316, qits-2324, qits-2329).
+ * `repositories/:repo`, `repositories/:repo/images/:image`, `repositories/:repo/daemons/:daemon`
+ * and `repositories/:repo/cleanup` — each one entry inside `OWN`, mounted three times (bare, under
+ * a project, under `:project/:group/:repository`), none of them drawing `RepositoryPage`,
+ * `ImagePage`, `DaemonPage` or `CleanupPage` here any more (qits-2316, qits-2324, qits-2327,
+ * qits-2329).
  *
  * It draws almost nothing of its own: a line for the moment between mounting and the hand-off.
- * `/repositories/<repo>`, `/repositories/<repo>/images/<image>` and
- * `/repositories/<repo>/cleanup` used to open this application's own pages for that repository,
- * that image or that cleanup; this component instead performs a full-document hand-off to the
- * landing app's own address for whichever one matched —
- * `<landing origin>/artifacts/repositories/<repo>`,
- * `<landing origin>/artifacts/repositories/<repo>/images/<image>` or
+ * `/repositories/<repo>`, `/repositories/<repo>/images/<image>`,
+ * `/repositories/<repo>/daemons/<daemon>` and `/repositories/<repo>/cleanup` used to open this
+ * application's own pages for that repository, that image, that daemon or that cleanup; this
+ * component instead performs a full-document hand-off to the landing app's own address for
+ * whichever one matched — `<landing origin>/artifacts/repositories/<repo>`,
+ * `<landing origin>/artifacts/repositories/<repo>/images/<image>`,
+ * `<landing origin>/artifacts/repositories/<repo>/daemons/<daemon>` or
  * `<landing origin>/artifacts/repositories/<repo>/cleanup` — through {@link NAVIGATE_AWAY} rather
  * than the router: the destination is a different Angular application, and a `routerLink` would
  * compile and go nowhere.
@@ -94,9 +101,11 @@ export class RepositoryRedirect {
   /** Which noun the message above names, decided once off this route's own matched params/data. */
   protected readonly noun = this.route.snapshot.paramMap.has('image')
     ? 'image'
-    : this.route.snapshot.data['landing'] === 'cleanup'
-      ? 'cleanup'
-      : 'repository';
+    : this.route.snapshot.paramMap.has('daemon')
+      ? 'daemon'
+      : this.route.snapshot.data['landing'] === 'cleanup'
+        ? 'cleanup'
+        : 'repository';
 
   constructor() {
     const path = landingPath(this.route.snapshot.paramMap, this.route.snapshot.data);

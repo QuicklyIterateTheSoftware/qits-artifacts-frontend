@@ -10,8 +10,6 @@ import type {
   ArtifactFilters,
   DaemonDto,
   DaemonsResponse,
-  DaemonVersionDto,
-  DaemonVersionsResponse,
   DocsSiteDto,
   DocsSitesResponse,
   DocsVersionDto,
@@ -224,17 +222,6 @@ export class ArtifactsApi {
       ),
     );
     return response.daemons;
-  }
-
-  /** One daemon's versions, newest first, each with the digest a deployment would pin. */
-  async daemonVersions(repository: string, daemon: string): Promise<readonly DaemonVersionDto[]> {
-    const response = await firstValueFrom(
-      this.http.get<DaemonVersionsResponse>(
-        `${this.base}/artifacts/api/repositories/${encodeURIComponent(repository)}` +
-          `/daemons/${encodeURIComponent(daemon)}/versions`,
-      ),
-    );
-    return response.versions;
   }
 
   /** The documentation sites of a `docs` repository, with the per-site union the open wire
