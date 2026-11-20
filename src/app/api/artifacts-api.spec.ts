@@ -12,9 +12,10 @@ const ORCHESTRATOR_ORIGIN = 'https://orchestrator.qits.example';
  *
  * The store's reads are same-origin absolute paths on purpose — the SPA is served by the very
  * service it reads from, behind the same gateway, and these reads carry no credential at all. The
- * three cleanup calls are the exception (qits-2138): they go to qits-orchestrator's own origin, as
- * the navigation names it, and carry the bearer `qitsBearerInterceptor` adds (installed in
- * `app.config.ts`, not under test here).
+ * cleanup listing is the exception (qits-2138): it goes to qits-orchestrator's own origin, as the
+ * navigation names it, and carries the bearer `qitsBearerInterceptor` adds (installed in
+ * `app.config.ts`, not under test here). The per-repository plan and the run themselves moved off
+ * this application to the landing app (qits-2329) and are not under test here any more.
  *
  * The backend is being built against this contract in parallel, so this file is where the contract
  * is pinned: a path that changes shape breaks here first, loudly, rather than at runtime.
@@ -250,34 +251,6 @@ describe('ArtifactsApi', () => {
       repositories: [],
     });
     await expect(plan).resolves.toMatchObject({ executable: true, repositories: [] });
-  });
-
-  it('reads one repository’s plan from qits-orchestrator, the segment encoded', async () => {
-    const plan = api.gcRepositoryPlan('a/b');
-    await settle();
-    http
-      .expectOne(`${ORCHESTRATOR_ORIGIN}/orchestrator/api/artifacts/repositories/a%2Fb/plan`)
-      .flush({ repository: 'a/b' });
-    await expect(plan).resolves.toMatchObject({ repository: 'a/b' });
-  });
-
-  // The one write this application makes. It goes to qits-orchestrator with an empty body — there is
-  // no way to submit a plan — and no machine token: the bearer is the interceptor's, and what
-  // qits-artifacts accepts is qits-orchestrator's to hold.
-  it('sweeps through qits-orchestrator with an empty body and no machine token', async () => {
-    const swept = api.gcRepositorySweep('qits');
-    await settle();
-    const request = http.expectOne(
-      `${ORCHESTRATOR_ORIGIN}/orchestrator/api/artifacts/repositories/qits/sweep`,
-    );
-    expect(request.request.method).toBe('POST');
-    expect(request.request.body).toEqual({});
-    expect(request.request.headers.has('X-Artifacts-Token')).toBe(false);
-    request.flush(
-      { message: 'a gc run is already active: 7f3c' },
-      { status: 409, statusText: 'Conflict' },
-    );
-    await expect(swept).rejects.toMatchObject({ status: 409 });
   });
 
   describe('orchestratorUnreachable', () => {

@@ -3,7 +3,6 @@ import { provideLocationMocks } from '@angular/common/testing';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { routes } from './app.routes';
-import { CleanupPage } from './cleanup/cleanup-page';
 import { NotFound } from './not-found/not-found';
 import { RepositoriesPage } from './repositories/repositories-page';
 import { RepositoryRedirect } from './repository/repository-redirect';
@@ -44,8 +43,10 @@ describe('app routes', () => {
       RepositoryRedirect,
     );
 
-    expect(await resolve('/repositories/qits/cleanup')).toBe(CleanupPage);
-    expect(await resolve('/qits/libs/qits-blobstore/repositories/qits/cleanup')).toBe(CleanupPage);
+    expect(await resolve('/repositories/qits/cleanup')).toBe(RepositoryRedirect);
+    expect(await resolve('/qits/libs/qits-blobstore/repositories/qits/cleanup')).toBe(
+      RepositoryRedirect,
+    );
 
     expect(await resolve('/repositories/daemons/daemons/qits-agent')).toBe(RepositoryRedirect);
     expect(await resolve('/qits/services/qits-artifacts/repositories/daemons/daemons/qits-agent')).toBe(
@@ -64,7 +65,7 @@ describe('app routes', () => {
     // `/qits` is where the chrome's project picker sends this app when a reader picks `qits`.
     expect(await resolve('/qits')).toBe(RepositoriesPage);
     expect(await resolve('/qits/repositories/qits')).toBe(RepositoryRedirect);
-    expect(await resolve('/qits/repositories/qits/cleanup')).toBe(CleanupPage);
+    expect(await resolve('/qits/repositories/qits/cleanup')).toBe(RepositoryRedirect);
     expect(await resolve('/qits/repositories/qits/images/qits%2Fbase')).toBe(RepositoryRedirect);
     expect(await resolve('/qits/repositories/daemons/daemons/qits-agent')).toBe(RepositoryRedirect);
     expect(await resolve('/qits/repositories/docs/docs/%40userflows%2Fqits-artifacts')).toBe(
@@ -94,7 +95,7 @@ describe('app routes', () => {
    */
   it('reads a literal first segment as this app own page, not as a project', async () => {
     expect(await resolve('/repositories/npm')).toBe(RepositoryRedirect);
-    expect(await resolve('/repositories/npm/cleanup')).toBe(CleanupPage);
+    expect(await resolve('/repositories/npm/cleanup')).toBe(RepositoryRedirect);
   });
 
   /**

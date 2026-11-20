@@ -13,14 +13,16 @@ import { LANDING_ORIGIN_WAIT_MS, RepositoryRedirect } from './repository-redirec
 const LANDING_ORIGIN = 'https://landing.qits.example';
 
 /**
- * `repositories/:repo`, `repositories/:repo/images/:image`, `repositories/:repo/daemons/:daemon`
- * and `repositories/:repo/docs/:site` are each one entry inside `OWN`, mounted three times — bare,
- * under a project and under a repository — and since qits-2316 (repo), qits-2324 (image), qits-2327
- * (daemon) and qits-2328 (site) all four reach this one component rather than `RepositoryPage`,
- * `ImagePage`, `DaemonPage` or `DocsPage`. The point of this group is that the hand-off actually
- * happens in every spelling, of every mount, through real routing rather than a stubbed
- * `ActivatedRoute`: `app.routes.spec.ts` never instantiates a component (there is no `RouterOutlet`
- * there), so this is the only place a wrong param on one of the spellings would show up.
+ * `repositories/:repo`, `repositories/:repo/images/:image`, `repositories/:repo/daemons/:daemon`,
+ * `repositories/:repo/docs/:site` and `repositories/:repo/cleanup` are each one entry inside
+ * `OWN`, mounted three times — bare, under a project and under a repository — and since qits-2316
+ * (repo), qits-2324 (image), qits-2327 (daemon), qits-2328 (site) and qits-2329 (cleanup) all five
+ * reach this one component rather than `RepositoryPage`, `ImagePage`, `DaemonPage`, `DocsPage` or
+ * `CleanupPage`. The point of this group is that the hand-off actually happens in every spelling,
+ * of every mount, through real routing rather than a stubbed `ActivatedRoute`:
+ * `app.routes.spec.ts` never instantiates a component (there is no `RouterOutlet` there), so this
+ * is the only place a wrong param — or a wrong route `data` — on one of the spellings would show
+ * up.
  */
 describe('RepositoryRedirect', () => {
   describe('reached through routing', () => {
@@ -195,6 +197,39 @@ describe('RepositoryRedirect', () => {
         );
       });
     });
+
+    /**
+     * `repositories/:repo/cleanup`, the qits-2329 counterpart to the groups above: the same route
+     * object, mounted the same three times, carrying only a `repo` param — same as the bare
+     * `repositories/:repo` mount — and told apart from it by the route's own `data.landing`.
+     */
+    describe('the cleanup route', () => {
+      it('hands the bare spelling off to the landing app’s cleanup page', async () => {
+        await harness.navigateByUrl('/repositories/qits/cleanup');
+        await vi.waitFor(() => expect(navigateAway).toHaveBeenCalled());
+        expect(navigateAway).toHaveBeenCalledWith(
+          `${LANDING_ORIGIN}/artifacts/repositories/qits/cleanup`,
+        );
+      });
+
+      it('hands the project spelling off the same way', async () => {
+        await harness.navigateByUrl('/qits/repositories/qits/cleanup');
+        await vi.waitFor(() => expect(navigateAway).toHaveBeenCalled());
+        expect(navigateAway).toHaveBeenCalledWith(
+          `${LANDING_ORIGIN}/artifacts/repositories/qits/cleanup`,
+        );
+      });
+
+      it('hands the repository spelling off the same way', async () => {
+        await harness.navigateByUrl(
+          '/qits/qits-artifacts/qits-artifacts-service/repositories/qits/cleanup',
+        );
+        await vi.waitFor(() => expect(navigateAway).toHaveBeenCalled());
+        expect(navigateAway).toHaveBeenCalledWith(
+          `${LANDING_ORIGIN}/artifacts/repositories/qits/cleanup`,
+        );
+      });
+    });
   });
 
   /**
@@ -208,7 +243,10 @@ describe('RepositoryRedirect', () => {
       const navigateAway = vi.fn();
       TestBed.configureTestingModule({
         providers: [
-          { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ repo }) } } },
+          {
+            provide: ActivatedRoute,
+            useValue: { snapshot: { paramMap: convertToParamMap({ repo }), data: {} } },
+          },
           { provide: NAVIGATE_AWAY, useValue: navigateAway },
           ...providers,
         ],
