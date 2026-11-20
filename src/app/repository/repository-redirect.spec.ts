@@ -13,13 +13,15 @@ import { LANDING_ORIGIN_WAIT_MS, RepositoryRedirect } from './repository-redirec
 const LANDING_ORIGIN = 'https://landing.qits.example';
 
 /**
- * `repositories/:repo` and `repositories/:repo/images/:image` are each one entry inside `OWN`,
- * mounted three times — bare, under a project and under a repository — and since qits-2316
- * (repo) and qits-2324 (image) all three reach this one component rather than `RepositoryPage` or
- * `ImagePage`. The point of this group is that the hand-off actually happens in every spelling, of
- * either mount, through real routing rather than a stubbed `ActivatedRoute`: `app.routes.spec.ts`
- * never instantiates a component (there is no `RouterOutlet` there), so this is the only place a
- * wrong param on one of the spellings would show up.
+ * `repositories/:repo`, `repositories/:repo/images/:image` and
+ * `repositories/:repo/maven-packages/:coordinate` are each one entry inside `OWN`, mounted three
+ * times — bare, under a project and under a repository — and since qits-2316 (repo), qits-2324
+ * (image) and qits-2325 (coordinate) all three reach this one component rather than
+ * `RepositoryPage`, `ImagePage` or `MavenPage`. The point of this group is that the hand-off
+ * actually happens in every spelling, of any mount, through real routing rather than a stubbed
+ * `ActivatedRoute`: `app.routes.spec.ts` never instantiates a component (there is no
+ * `RouterOutlet` there), so this is the only place a wrong param on one of the spellings would
+ * show up.
  */
 describe('RepositoryRedirect', () => {
   describe('reached through routing', () => {
@@ -113,6 +115,49 @@ describe('RepositoryRedirect', () => {
         await vi.waitFor(() => expect(navigateAway).toHaveBeenCalled());
         expect(navigateAway).toHaveBeenCalledWith(
           `${LANDING_ORIGIN}/artifacts/repositories/qits/images/build-images%2Fci-base`,
+        );
+      });
+    });
+
+    /**
+     * `repositories/:repo/maven-packages/:coordinate`, the qits-2325 counterpart to the groups
+     * above: the same route object, mounted the same three times, now carrying a `coordinate`
+     * param instead of `image`.
+     */
+    describe('the maven-packages route', () => {
+      const COORDINATE = 'eu.wohlben.qits:qits-eventstream';
+      const ENCODED_COORDINATE = 'eu.wohlben.qits%3Aqits-eventstream';
+
+      it('hands the bare spelling off to the landing app’s maven-package page', async () => {
+        await harness.navigateByUrl(`/repositories/qits/maven-packages/${COORDINATE}`);
+        await vi.waitFor(() => expect(navigateAway).toHaveBeenCalled());
+        expect(navigateAway).toHaveBeenCalledWith(
+          `${LANDING_ORIGIN}/artifacts/repositories/qits/maven-packages/${ENCODED_COORDINATE}`,
+        );
+      });
+
+      it('hands the project spelling off the same way', async () => {
+        await harness.navigateByUrl(`/qits/repositories/qits/maven-packages/${COORDINATE}`);
+        await vi.waitFor(() => expect(navigateAway).toHaveBeenCalled());
+        expect(navigateAway).toHaveBeenCalledWith(
+          `${LANDING_ORIGIN}/artifacts/repositories/qits/maven-packages/${ENCODED_COORDINATE}`,
+        );
+      });
+
+      /**
+       * The repository spelling, on the same coordinate — which carries both a colon, which
+       * `encodeURIComponent` escapes to `%3A`, and dots, which it leaves alone. All three spellings
+       * above prove the escaping, not a fourth dedicated case, because every maven coordinate looks
+       * like this one: the colon is not an edge case for this param the way a slash is for an image
+       * name.
+       */
+      it('hands the repository spelling off the same way, escaping the colon on the way out', async () => {
+        await harness.navigateByUrl(
+          `/qits/qits-artifacts/qits-artifacts-service/repositories/qits/maven-packages/${COORDINATE}`,
+        );
+        await vi.waitFor(() => expect(navigateAway).toHaveBeenCalled());
+        expect(navigateAway).toHaveBeenCalledWith(
+          `${LANDING_ORIGIN}/artifacts/repositories/qits/maven-packages/${ENCODED_COORDINATE}`,
         );
       });
     });

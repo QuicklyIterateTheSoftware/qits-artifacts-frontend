@@ -14,8 +14,9 @@ host** (`registry.<env>.<domain>`) through Quinoa. Eight pages, and almost all o
 - **`/repositories/<repo>/images/<image>`** — hands off to the landing app's own address for that
   image, the same way `/repositories/<repo>` does (qits-2316, qits-2324).
 - **`/repositories/<repo>/packages/<package>`** — a package's versions.
-- **`/repositories/<repo>/maven-packages/<coordinate>`** — a coordinate's versions and the files
-  each deploys.
+- **`/repositories/<repo>/maven-packages/<coordinate>`** — hands off to the landing app's own
+  address for that coordinate, the same way `/repositories/<repo>` and
+  `/repositories/<repo>/images/<image>` do (qits-2316, qits-2324, qits-2325).
 - **`/repositories/<repo>/daemons/<daemon>`** — a daemon's published versions, each linked to its
   own version-addressed download, with the `sha256:` digest a deployment pins.
 - **`/repositories/<repo>/docs/<site>`** — a documentation site's published versions, each with the

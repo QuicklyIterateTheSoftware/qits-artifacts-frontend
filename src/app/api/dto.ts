@@ -140,13 +140,6 @@ export interface MavenPackageDto {
   readonly sizeBytes: number;
 }
 export interface MavenPackagesResponse { readonly packages: readonly MavenPackageDto[]; }
-export interface MavenVersionDto {
-  readonly version: string;
-  readonly files: readonly string[];
-  readonly sizeBytes: number;
-  readonly publishedAt: string;
-}
-export interface MavenVersionsResponse { readonly versions: readonly MavenVersionDto[]; }
 
 /**
  * One daemon of the `daemon-binaries` repository, folded from its published versions.
