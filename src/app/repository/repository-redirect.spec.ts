@@ -14,12 +14,13 @@ const LANDING_ORIGIN = 'https://landing.qits.example';
 
 /**
  * `repositories/:repo`, `repositories/:repo/images/:image`,
- * `repositories/:repo/maven-packages/:coordinate`, `repositories/:repo/daemons/:daemon`,
- * `repositories/:repo/docs/:site` and `repositories/:repo/cleanup` are each one entry inside
- * `OWN`, mounted three times — bare, under a project and under a repository — and since qits-2316
- * (repo), qits-2324 (image), qits-2325 (coordinate), qits-2327 (daemon), qits-2328 (site) and
- * qits-2329 (cleanup) all six reach this one component rather than `RepositoryPage`, `ImagePage`,
- * `MavenPage`, `DaemonPage`, `DocsPage` or `CleanupPage`. The point of this group is that the
+ * `repositories/:repo/maven-packages/:coordinate`, `repositories/:repo/packages/:package`,
+ * `repositories/:repo/daemons/:daemon`, `repositories/:repo/docs/:site` and
+ * `repositories/:repo/cleanup` are each one entry inside `OWN`, mounted three times — bare, under
+ * a project and under a repository — and since qits-2316 (repo), qits-2324 (image), qits-2325
+ * (coordinate), qits-2326 (package), qits-2327 (daemon), qits-2328 (site) and qits-2329 (cleanup)
+ * all seven reach this one component rather than `RepositoryPage`, `ImagePage`, `MavenPage`,
+ * `PackagePage`, `DaemonPage`, `DocsPage` or `CleanupPage`. The point of this group is that the
  * hand-off actually happens in every spelling, of every mount, through real routing rather than a
  * stubbed `ActivatedRoute`: `app.routes.spec.ts` never instantiates a component (there is no
  * `RouterOutlet` there), so this is the only place a wrong param — or a wrong route `data` — on
@@ -160,6 +161,51 @@ describe('RepositoryRedirect', () => {
         await vi.waitFor(() => expect(navigateAway).toHaveBeenCalled());
         expect(navigateAway).toHaveBeenCalledWith(
           `${LANDING_ORIGIN}/artifacts/repositories/qits/maven-packages/${ENCODED_COORDINATE}`,
+        );
+      });
+    });
+
+    /**
+     * `repositories/:repo/packages/:package`, the qits-2326 counterpart to the three groups above:
+     * the same route object, mounted the same three times, now carrying a `package` param instead
+     * of `image` or `coordinate`.
+     */
+    describe('the packages route', () => {
+      const PACKAGE = '@qits/angular';
+      const ENCODED_PACKAGE = '%40qits%2Fangular';
+
+      it('hands the bare spelling off to the landing app’s package page', async () => {
+        await harness.navigateByUrl(`/repositories/npm/packages/${encodeURIComponent(PACKAGE)}`);
+        await vi.waitFor(() => expect(navigateAway).toHaveBeenCalled());
+        expect(navigateAway).toHaveBeenCalledWith(
+          `${LANDING_ORIGIN}/artifacts/repositories/npm/packages/${ENCODED_PACKAGE}`,
+        );
+      });
+
+      it('hands the project spelling off the same way', async () => {
+        await harness.navigateByUrl(
+          `/qits/repositories/npm/packages/${encodeURIComponent(PACKAGE)}`,
+        );
+        await vi.waitFor(() => expect(navigateAway).toHaveBeenCalled());
+        expect(navigateAway).toHaveBeenCalledWith(
+          `${LANDING_ORIGIN}/artifacts/repositories/npm/packages/${ENCODED_PACKAGE}`,
+        );
+      });
+
+      /**
+       * The repository spelling, on the same scoped package name — which carries the slash that
+       * the scope puts between its two segments. The router decodes the matched `%2F` back into a
+       * literal slash in the `package` param, exactly as it does for a scoped image or site name
+       * above, and `encodeURIComponent` escapes it again — along with the leading `@` — on the way
+       * out.
+       */
+      it('hands the repository spelling off the same way, escaping the scope on the way out', async () => {
+        await harness.navigateByUrl(
+          `/qits/qits-artifacts/qits-artifacts-service/repositories/npm/packages/${encodeURIComponent(PACKAGE)}`,
+        );
+        await vi.waitFor(() => expect(navigateAway).toHaveBeenCalled());
+        expect(navigateAway).toHaveBeenCalledWith(
+          `${LANDING_ORIGIN}/artifacts/repositories/npm/packages/${ENCODED_PACKAGE}`,
         );
       });
     });

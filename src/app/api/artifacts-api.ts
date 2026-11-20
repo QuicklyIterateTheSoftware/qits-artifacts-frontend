@@ -17,12 +17,10 @@ import type {
   MavenPackageDto,
   MavenPackagesResponse,
   NpmPackageDto,
-  NpmVersionDto,
   OciImageDto,
   PackagesResponse,
   RepositoriesResponse,
   StoreSummaryDto,
-  VersionsResponse,
 } from './dto';
 
 /**
@@ -175,17 +173,6 @@ export class ArtifactsApi {
       ),
     );
     return response.packages;
-  }
-
-  /** One package's versions. The package name is encoded whole, scope and all. */
-  async versions(repository: string, packageName: string): Promise<readonly NpmVersionDto[]> {
-    const response = await firstValueFrom(
-      this.http.get<VersionsResponse>(
-        `${this.base}/artifacts/api/repositories/${encodeURIComponent(repository)}` +
-          `/packages/${encodeURIComponent(packageName)}/versions`,
-      ),
-    );
-    return response.versions;
   }
 
   async mavenPackages(repository: string): Promise<readonly MavenPackageDto[]> {

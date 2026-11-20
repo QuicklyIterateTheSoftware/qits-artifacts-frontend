@@ -116,24 +116,6 @@ export interface PackagesResponse {
   readonly packages: readonly NpmPackageDto[];
 }
 
-/**
- * One version of one package.
- *
- * `tarballSizeBytes` and `publishedAt` stay nullable: null is the absence of a measurement, and the
- * table prints "not measured" rather than a plausible zero. `distTags` are the dist-tags pointing at
- * this version.
- */
-export interface NpmVersionDto {
-  readonly version: string;
-  readonly tarballSizeBytes: number | null;
-  readonly publishedAt: string | null;
-  readonly distTags: readonly string[];
-}
-
-export interface VersionsResponse {
-  readonly versions: readonly NpmVersionDto[];
-}
-
 export interface MavenPackageDto {
   readonly name: string;
   readonly versionCount: number;

@@ -1,7 +1,6 @@
 import type { CanMatchFn, Routes, UrlSegment } from '@angular/router';
 import { QitsMainLayout, QITS_CATEGORIES, type QitsCategory } from '@qits/ui-components';
 import { NotFound } from './not-found/not-found';
-import { PackagePage } from './package/package-page';
 import { RepositoriesPage } from './repositories/repositories-page';
 import { RepositoryRedirect } from './repository/repository-redirect';
 
@@ -46,20 +45,20 @@ import { RepositoryRedirect } from './repository/repository-redirect';
  * The `**` route sits inside the layout: this application owns the whole of its own host, so an
  * unknown URL is an ordinary 404 and is drawn with the chrome around it.
  *
- * **Six of the eight are exceptions now: `repositories/:repo` since qits-2316,
+ * **Seven of the eight are exceptions now: `repositories/:repo` since qits-2316,
  * `repositories/:repo/images/:image` since qits-2324, `repositories/:repo/maven-packages/:coordinate`
  * since qits-2325, `repositories/:repo/daemons/:daemon` since qits-2327,
- * `repositories/:repo/docs/:site` since qits-2328, and `repositories/:repo/cleanup` since
- * qits-2329.** None of the six draws a page of its own content here any more — `RepositoryPage`,
- * `ImagePage`, `MavenPage`, `DaemonPage`, `DocsPage` and `CleanupPage` are all gone; each instead
- * hands the reader to the landing app's own address for that repository, that image, that
- * coordinate, that daemon, that site or that cleanup, through the one shared `RepositoryRedirect`,
- * which reads whichever of `repo`/`image`/`daemon`/`site`/`coordinate` its own matched route
+ * `repositories/:repo/docs/:site` since qits-2328, `repositories/:repo/cleanup` since qits-2329,
+ * and `repositories/:repo/packages/:package` since qits-2326.** None of the seven draws a page of
+ * its own content here any more — `RepositoryPage`, `ImagePage`, `MavenPage`, `DaemonPage`,
+ * `DocsPage`, `CleanupPage` and `PackagePage` are all gone; each instead hands the reader to the
+ * landing app's own address for that repository, that image, that coordinate, that daemon, that
+ * site, that cleanup or that package, through the one shared `RepositoryRedirect`, which reads
+ * whichever of `repo`/`image`/`daemon`/`site`/`coordinate`/`package` its own matched route
  * carries, and tells the cleanup mount apart from the plain repository mount — both of which carry
  * only `repo` — by its route `data`. Because each is one entry inside `OWN` rather than a route
  * spelled out separately for each mount, the hand-off reaches all three spellings — bare, under a
- * project, under a repository — with the one change below. The other two stay exactly as they
- * were.
+ * project, under a repository — with the one change below. The other one stays exactly as it was.
  */
 const OWN: Routes = [
   { path: '', component: RepositoriesPage },
@@ -70,7 +69,7 @@ const OWN: Routes = [
     data: { landing: 'cleanup' },
   },
   { path: 'repositories/:repo/images/:image', component: RepositoryRedirect },
-  { path: 'repositories/:repo/packages/:package', component: PackagePage },
+  { path: 'repositories/:repo/packages/:package', component: RepositoryRedirect },
   { path: 'repositories/:repo/maven-packages/:coordinate', component: RepositoryRedirect },
   { path: 'repositories/:repo/daemons/:daemon', component: RepositoryRedirect },
   { path: 'repositories/:repo/docs/:site', component: RepositoryRedirect },
@@ -120,12 +119,12 @@ export const isRepositoryAddress: CanMatchFn = (_route, segments: UrlSegment[]) 
  *
  * The pages read `inject(QITS_SCOPE).scope()` rather than these three params. A page that read them
  * would work in one spelling and be blank in the others. `RepositoryRedirect` is the exception, at
- * all six of its mounts: it reads its own route's `repo` (and, under `images/:image`,
+ * all seven of its mounts: it reads its own route's `repo` (and, under `images/:image`,
  * `daemons/:daemon` or `docs/:site`, `image`, `daemon` or `site`, or under
- * `maven-packages/:coordinate`, `coordinate`) params, and its own route's `data` (under
- * `cleanup`), directly rather than the scope, because all three spellings of a given mount share
- * the same `OWN` route object and so already carry those params and that data on the matched
- * route itself — there is nothing a scope would add.
+ * `maven-packages/:coordinate` or `packages/:package`, `coordinate` or `package`) params, and its
+ * own route's `data` (under `cleanup`), directly rather than the scope, because all three
+ * spellings of a given mount share the same `OWN` route object and so already carry those params
+ * and that data on the matched route itself — there is nothing a scope would add.
  */
 export const routes: Routes = [
   {

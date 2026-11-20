@@ -13,7 +13,9 @@ host** (`registry.<env>.<domain>`) through Quinoa. Eight pages, and almost all o
   repository's cleanup, the same way `/repositories/<repo>` does (qits-2316, qits-2324, qits-2329).
 - **`/repositories/<repo>/images/<image>`** — hands off to the landing app's own address for that
   image, the same way `/repositories/<repo>` does (qits-2316, qits-2324).
-- **`/repositories/<repo>/packages/<package>`** — a package's versions.
+- **`/repositories/<repo>/packages/<package>`** — hands off to the landing app's own address for
+  that package, the same way `/repositories/<repo>` and `/repositories/<repo>/images/<image>` do
+  (qits-2316, qits-2324, qits-2326).
 - **`/repositories/<repo>/maven-packages/<coordinate>`** — hands off to the landing app's own
   address for that coordinate, the same way `/repositories/<repo>` and
   `/repositories/<repo>/images/<image>` do (qits-2316, qits-2324, qits-2325).

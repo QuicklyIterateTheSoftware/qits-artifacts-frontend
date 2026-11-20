@@ -43,18 +43,19 @@ async function landingOrigin(links: QitsAppLinks): Promise<string> {
  * `repositories/:repo/images/:image`, `repo` and `daemon` together for
  * `repositories/:repo/daemons/:daemon`, `repo` and `site` together for
  * `repositories/:repo/docs/:site`, `repo` and `coordinate` together for
- * `repositories/:repo/maven-packages/:coordinate`, or `repo` alone again — but marked by
- * `data.landing` — for `repositories/:repo/cleanup`. All six mounts share the one
- * `RepositoryRedirect` below, so the params and data on the matched route are exactly what this
- * builds from — there is never a seventh shape to account for, and no route carries more than one
- * of `image`/`daemon`/`site`/`coordinate` at once, nor both one of those params and `data.landing`
- * together.
+ * `repositories/:repo/maven-packages/:coordinate`, `repo` and `package` together for
+ * `repositories/:repo/packages/:package`, or `repo` alone again — but marked by `data.landing` —
+ * for `repositories/:repo/cleanup`. All seven mounts share the one `RepositoryRedirect` below, so
+ * the params and data on the matched route are exactly what this builds from — there is never an
+ * eighth shape to account for, and no route carries more than one of
+ * `image`/`daemon`/`site`/`coordinate`/`package` at once, nor both one of those params and
+ * `data.landing` together.
  *
- * `image`, `daemon`, `site` and `coordinate` are read first because none can be mistaken for
- * another shape: a route that carries one is `images/:image`, `daemons/:daemon`, `docs/:site` or
- * `maven-packages/:coordinate` and nothing else. `repo` alone is ambiguous between
- * `repositories/:repo` and `repositories/:repo/cleanup` — both match only on `repo` — which is why
- * the latter is told apart by its route `data` rather than by a param.
+ * `image`, `daemon`, `site`, `coordinate` and `package` are read first because none can be
+ * mistaken for another shape: a route that carries one is `images/:image`, `daemons/:daemon`,
+ * `docs/:site`, `maven-packages/:coordinate` or `packages/:package` and nothing else. `repo` alone
+ * is ambiguous between `repositories/:repo` and `repositories/:repo/cleanup` — both match only on
+ * `repo` — which is why the latter is told apart by its route `data` rather than by a param.
  */
 function landingPath(params: ParamMap, data: Data): string {
   const repo = encodeURIComponent(params.get('repo') ?? '');
@@ -62,6 +63,7 @@ function landingPath(params: ParamMap, data: Data): string {
   const daemon = params.get('daemon');
   const site = params.get('site');
   const coordinate = params.get('coordinate');
+  const packageName = params.get('package');
   if (image !== null) {
     return `/artifacts/repositories/${repo}/images/${encodeURIComponent(image)}`;
   }
@@ -74,6 +76,9 @@ function landingPath(params: ParamMap, data: Data): string {
   if (coordinate !== null) {
     return `/artifacts/repositories/${repo}/maven-packages/${encodeURIComponent(coordinate)}`;
   }
+  if (packageName !== null) {
+    return `/artifacts/repositories/${repo}/packages/${encodeURIComponent(packageName)}`;
+  }
   return data['landing'] === 'cleanup'
     ? `/artifacts/repositories/${repo}/cleanup`
     : `/artifacts/repositories/${repo}`;
@@ -81,24 +86,27 @@ function landingPath(params: ParamMap, data: Data): string {
 
 /**
  * `repositories/:repo`, `repositories/:repo/images/:image`, `repositories/:repo/daemons/:daemon`,
- * `repositories/:repo/docs/:site`, `repositories/:repo/maven-packages/:coordinate` and
- * `repositories/:repo/cleanup` — each one entry inside `OWN`, mounted three times (bare, under a
- * project, under `:project/:group/:repository`), none of them drawing `RepositoryPage`,
- * `ImagePage`, `DaemonPage`, `DocsPage`, `MavenPage` or `CleanupPage` here any more (qits-2316,
- * qits-2324, qits-2325, qits-2327, qits-2328, qits-2329).
+ * `repositories/:repo/docs/:site`, `repositories/:repo/maven-packages/:coordinate`,
+ * `repositories/:repo/packages/:package` and `repositories/:repo/cleanup` — each one entry inside
+ * `OWN`, mounted three times (bare, under a project, under `:project/:group/:repository`), none of
+ * them drawing `RepositoryPage`, `ImagePage`, `DaemonPage`, `DocsPage`, `MavenPage`, `PackagePage`
+ * or `CleanupPage` here any more (qits-2316, qits-2324, qits-2325, qits-2326, qits-2327, qits-2328,
+ * qits-2329).
  *
  * It draws almost nothing of its own: a line for the moment between mounting and the hand-off.
  * `/repositories/<repo>`, `/repositories/<repo>/images/<image>`,
  * `/repositories/<repo>/daemons/<daemon>`, `/repositories/<repo>/docs/<site>`,
- * `/repositories/<repo>/maven-packages/<coordinate>` and `/repositories/<repo>/cleanup` used to
- * open this application's own pages for that repository, that image, that daemon, that site, that
- * coordinate or that cleanup; this component instead performs a full-document hand-off to the
- * landing app's own address for whichever one matched —
+ * `/repositories/<repo>/maven-packages/<coordinate>`, `/repositories/<repo>/packages/<package>`
+ * and `/repositories/<repo>/cleanup` used to open this application's own pages for that
+ * repository, that image, that daemon, that site, that coordinate, that package or that cleanup;
+ * this component instead performs a full-document hand-off to the landing app's own address for
+ * whichever one matched —
  * `<landing origin>/artifacts/repositories/<repo>`,
  * `<landing origin>/artifacts/repositories/<repo>/images/<image>`,
  * `<landing origin>/artifacts/repositories/<repo>/daemons/<daemon>`,
  * `<landing origin>/artifacts/repositories/<repo>/docs/<site>`,
- * `<landing origin>/artifacts/repositories/<repo>/maven-packages/<coordinate>` or
+ * `<landing origin>/artifacts/repositories/<repo>/maven-packages/<coordinate>`,
+ * `<landing origin>/artifacts/repositories/<repo>/packages/<package>` or
  * `<landing origin>/artifacts/repositories/<repo>/cleanup` — through {@link NAVIGATE_AWAY} rather
  * than the router: the destination is a different Angular application, and a `routerLink` would
  * compile and go nowhere.
@@ -125,9 +133,11 @@ export class RepositoryRedirect {
         ? 'site'
         : this.route.snapshot.paramMap.has('coordinate')
           ? 'coordinate'
-          : this.route.snapshot.data['landing'] === 'cleanup'
-            ? 'cleanup'
-            : 'repository';
+          : this.route.snapshot.paramMap.has('package')
+            ? 'package'
+            : this.route.snapshot.data['landing'] === 'cleanup'
+              ? 'cleanup'
+              : 'repository';
 
   constructor() {
     const path = landingPath(this.route.snapshot.paramMap, this.route.snapshot.data);

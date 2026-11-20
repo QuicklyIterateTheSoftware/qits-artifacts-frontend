@@ -168,35 +168,6 @@ describe('ArtifactsApi', () => {
     ]);
   });
 
-  it('encodes the scope separator in a package name, slash and all', async () => {
-    const versions = api.versions('npm', '@qits/ui-components');
-    const request = http.expectOne(
-      '/artifacts/api/repositories/npm/packages/%40qits%2Fui-components/versions',
-    );
-    expect(request.request.url).toContain('%2F');
-    request.flush({
-      versions: [
-        {
-          version: '0.0.4',
-          tarballSizeBytes: 20480,
-          publishedAt: '2026-07-31T09:00:00Z',
-          distTags: ['latest'],
-        },
-      ],
-    });
-    await expect(versions).resolves.toMatchObject([{ version: '0.0.4', distTags: ['latest'] }]);
-  });
-
-  it('keeps an unmeasured version’s size and date as nulls', async () => {
-    const versions = api.versions('npm', '@qits/ui-components');
-    http
-      .expectOne('/artifacts/api/repositories/npm/packages/%40qits%2Fui-components/versions')
-      .flush({
-        versions: [{ version: '0.0.5', tarballSizeBytes: null, publishedAt: null, distTags: [] }],
-      });
-    await expect(versions).resolves.toMatchObject([{ tarballSizeBytes: null, publishedAt: null }]);
-  });
-
   it('unwraps the daemons of a daemon-binaries repository', async () => {
     const daemons = api.daemons('daemons');
     http.expectOne('/artifacts/api/repositories/daemons/daemons').flush({
