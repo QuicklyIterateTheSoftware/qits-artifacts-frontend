@@ -13,13 +13,14 @@ import { LANDING_ORIGIN_WAIT_MS, RepositoryRedirect } from './repository-redirec
 const LANDING_ORIGIN = 'https://landing.qits.example';
 
 /**
- * `repositories/:repo` and `repositories/:repo/images/:image` are each one entry inside `OWN`,
- * mounted three times — bare, under a project and under a repository — and since qits-2316
- * (repo) and qits-2324 (image) all three reach this one component rather than `RepositoryPage` or
- * `ImagePage`. The point of this group is that the hand-off actually happens in every spelling, of
- * either mount, through real routing rather than a stubbed `ActivatedRoute`: `app.routes.spec.ts`
- * never instantiates a component (there is no `RouterOutlet` there), so this is the only place a
- * wrong param on one of the spellings would show up.
+ * `repositories/:repo`, `repositories/:repo/images/:image` and `repositories/:repo/daemons/:daemon`
+ * are each one entry inside `OWN`, mounted three times — bare, under a project and under a
+ * repository — and since qits-2316 (repo), qits-2324 (image) and qits-2327 (daemon) all three reach
+ * this one component rather than `RepositoryPage`, `ImagePage` or `DaemonPage`. The point of this
+ * group is that the hand-off actually happens in every spelling, of every mount, through real
+ * routing rather than a stubbed `ActivatedRoute`: `app.routes.spec.ts` never instantiates a
+ * component (there is no `RouterOutlet` there), so this is the only place a wrong param on one of
+ * the spellings would show up.
  */
 describe('RepositoryRedirect', () => {
   describe('reached through routing', () => {
@@ -113,6 +114,38 @@ describe('RepositoryRedirect', () => {
         await vi.waitFor(() => expect(navigateAway).toHaveBeenCalled());
         expect(navigateAway).toHaveBeenCalledWith(
           `${LANDING_ORIGIN}/artifacts/repositories/qits/images/build-images%2Fci-base`,
+        );
+      });
+    });
+
+    /**
+     * `repositories/:repo/daemons/:daemon`, the qits-2327 counterpart to the two groups above: the
+     * same route object, mounted the same three times, now carrying a `daemon` param as well.
+     */
+    describe('the daemon route', () => {
+      it('hands the bare spelling off to the landing app’s daemon page', async () => {
+        await harness.navigateByUrl('/repositories/daemons/daemons/qits-agent');
+        await vi.waitFor(() => expect(navigateAway).toHaveBeenCalled());
+        expect(navigateAway).toHaveBeenCalledWith(
+          `${LANDING_ORIGIN}/artifacts/repositories/daemons/daemons/qits-agent`,
+        );
+      });
+
+      it('hands the project spelling off the same way', async () => {
+        await harness.navigateByUrl('/qits/repositories/daemons/daemons/qits-agent');
+        await vi.waitFor(() => expect(navigateAway).toHaveBeenCalled());
+        expect(navigateAway).toHaveBeenCalledWith(
+          `${LANDING_ORIGIN}/artifacts/repositories/daemons/daemons/qits-agent`,
+        );
+      });
+
+      it('hands the repository spelling off the same way', async () => {
+        await harness.navigateByUrl(
+          '/qits/qits-artifacts/qits-artifacts-service/repositories/daemons/daemons/qits-agent',
+        );
+        await vi.waitFor(() => expect(navigateAway).toHaveBeenCalled());
+        expect(navigateAway).toHaveBeenCalledWith(
+          `${LANDING_ORIGIN}/artifacts/repositories/daemons/daemons/qits-agent`,
         );
       });
     });

@@ -16,8 +16,9 @@ host** (`registry.<env>.<domain>`) through Quinoa. Eight pages, and almost all o
 - **`/repositories/<repo>/packages/<package>`** — a package's versions.
 - **`/repositories/<repo>/maven-packages/<coordinate>`** — a coordinate's versions and the files
   each deploys.
-- **`/repositories/<repo>/daemons/<daemon>`** — a daemon's published versions, each linked to its
-  own version-addressed download, with the `sha256:` digest a deployment pins.
+- **`/repositories/<repo>/daemons/<daemon>`** — hands off to the landing app's own address for that
+  daemon, the same way `/repositories/<repo>` and `/repositories/<repo>/images/<image>` do
+  (qits-2316, qits-2324, qits-2327).
 - **`/repositories/<repo>/docs/<site>`** — a documentation site's published versions, each with the
   branch and commit its publisher declared and a link that opens the bundle itself.
 

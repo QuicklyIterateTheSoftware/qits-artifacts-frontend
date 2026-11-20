@@ -1,7 +1,6 @@
 import type { CanMatchFn, Routes, UrlSegment } from '@angular/router';
 import { QitsMainLayout, QITS_CATEGORIES, type QitsCategory } from '@qits/ui-components';
 import { CleanupPage } from './cleanup/cleanup-page';
-import { DaemonPage } from './daemon/daemon-page';
 import { DocsPage } from './docs/docs-page';
 import { NotFound } from './not-found/not-found';
 import { PackagePage } from './package/package-page';
@@ -47,14 +46,15 @@ import { RepositoryRedirect } from './repository/repository-redirect';
  * The `**` route sits inside the layout: this application owns the whole of its own host, so an
  * unknown URL is an ordinary 404 and is drawn with the chrome around it.
  *
- * **Two of the eight are exceptions now: `repositories/:repo` since qits-2316, and
- * `repositories/:repo/images/:image` since qits-2324.** Neither draws a page of its own content
- * here any more — `RepositoryPage` and `ImagePage` are both gone; each instead hands the reader to
- * the landing app's own address for that repository or that image, through the one shared
- * `RepositoryRedirect`, which reads whichever of `repo`/`image` its own matched route carries.
- * Because each is one entry inside `OWN` rather than a route spelled out separately for each mount,
- * the hand-off reaches all three spellings — bare, under a project, under a repository — with the
- * one change below. The other six stay exactly as they were.
+ * **Three of the eight are exceptions now: `repositories/:repo` since qits-2316,
+ * `repositories/:repo/images/:image` since qits-2324, and `repositories/:repo/daemons/:daemon`
+ * since qits-2327.** None of the three draws a page of its own content here any more —
+ * `RepositoryPage`, `ImagePage` and `DaemonPage` are all gone; each instead hands the reader to the
+ * landing app's own address for that repository, that image or that daemon, through the one shared
+ * `RepositoryRedirect`, which reads whichever of `repo`/`image`/`daemon` its own matched route
+ * carries. Because each is one entry inside `OWN` rather than a route spelled out separately for
+ * each mount, the hand-off reaches all three spellings — bare, under a project, under a repository
+ * — with the one change below. The other five stay exactly as they were.
  */
 const OWN: Routes = [
   { path: '', component: RepositoriesPage },
@@ -63,7 +63,7 @@ const OWN: Routes = [
   { path: 'repositories/:repo/images/:image', component: RepositoryRedirect },
   { path: 'repositories/:repo/packages/:package', component: PackagePage },
   { path: 'repositories/:repo/maven-packages/:coordinate', component: MavenPage },
-  { path: 'repositories/:repo/daemons/:daemon', component: DaemonPage },
+  { path: 'repositories/:repo/daemons/:daemon', component: RepositoryRedirect },
   { path: 'repositories/:repo/docs/:site', component: DocsPage },
 ];
 
@@ -111,10 +111,10 @@ export const isRepositoryAddress: CanMatchFn = (_route, segments: UrlSegment[]) 
  *
  * The pages read `inject(QITS_SCOPE).scope()` rather than these three params. A page that read them
  * would work in one spelling and be blank in the others. `RepositoryRedirect` is the exception, at
- * both of its mounts: it reads its own route's `repo` (and, under `images/:image`, `image`) params
- * directly rather than the scope, because all three spellings of a given mount share the same `OWN`
- * route object and so already carry those params on the matched route itself — there is nothing a
- * scope would add.
+ * all three of its mounts: it reads its own route's `repo` (and, under `images/:image` or
+ * `daemons/:daemon`, `image` or `daemon`) params directly rather than the scope, because all three
+ * spellings of a given mount share the same `OWN` route object and so already carry those params
+ * on the matched route itself — there is nothing a scope would add.
  */
 export const routes: Routes = [
   {
