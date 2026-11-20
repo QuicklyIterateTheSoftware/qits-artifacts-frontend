@@ -19,8 +19,8 @@ host** (`registry.<env>.<domain>`) through Quinoa. Eight pages, and almost all o
 - **`/repositories/<repo>/daemons/<daemon>`** — hands off to the landing app's own address for that
   daemon, the same way `/repositories/<repo>` and `/repositories/<repo>/images/<image>` do
   (qits-2316, qits-2324, qits-2327).
-- **`/repositories/<repo>/docs/<site>`** — a documentation site's published versions, each with the
-  branch and commit its publisher declared and a link that opens the bundle itself.
+- **`/repositories/<repo>/docs/<site>`** — hands off to the landing app's own address for that
+  site, the same way the three routes above do (qits-2316, qits-2324, qits-2327, qits-2328).
 
 **Every one of them is addressable twice.** The platform's URL grammar puts the same page under
 `/<projectSlug>/<group>/<repoName>/…` — the middle segment being the repository's component where

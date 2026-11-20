@@ -197,34 +197,6 @@ export interface DocsSitesResponse {
 }
 
 /**
- * One published version of one documentation site — the unit that is published whole and evicted
- * whole.
- *
- * `fileCount` is the number of paths this version serves, not a distinct-blob count: it answers
- * what shape the bundle is, and a bundle that ships the same bytes at two paths really does serve
- * two paths. `sizeBytes` is the union over the distinct blobs behind them, so the two columns
- * deliberately do not derive from one another.
- *
- * `metadata` is the flat string map the publisher rode on `X-Artifacts-Meta-*` headers —
- * `git.branch.name` and `git.commit.hash` are the two this UI reads by name. Never null: a version
- * published without any arrives as `{}`, because "no metadata" and "metadata not read here" must
- * not be drawn alike.
- */
-export interface DocsVersionDto {
-  readonly version: string;
-  readonly fileCount: number;
-  readonly sizeBytes: number;
-  readonly publishedAt: string;
-  /** Null until a file of this version has been served — never, not zero. */
-  readonly accessedAt: string | null;
-  readonly metadata: Readonly<Record<string, string>>;
-}
-
-export interface DocsVersionsResponse {
-  readonly versions: readonly DocsVersionDto[];
-}
-
-/**
  * The honesty panel's numbers, and the reason it exists: these five figures describe one store
  * and they do not reconcile, so the store-level view names all of them rather than picking a
  * flattering one.

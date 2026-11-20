@@ -13,14 +13,14 @@ import { LANDING_ORIGIN_WAIT_MS, RepositoryRedirect } from './repository-redirec
 const LANDING_ORIGIN = 'https://landing.qits.example';
 
 /**
- * `repositories/:repo`, `repositories/:repo/images/:image` and `repositories/:repo/daemons/:daemon`
- * are each one entry inside `OWN`, mounted three times — bare, under a project and under a
- * repository — and since qits-2316 (repo), qits-2324 (image) and qits-2327 (daemon) all three reach
- * this one component rather than `RepositoryPage`, `ImagePage` or `DaemonPage`. The point of this
- * group is that the hand-off actually happens in every spelling, of every mount, through real
- * routing rather than a stubbed `ActivatedRoute`: `app.routes.spec.ts` never instantiates a
- * component (there is no `RouterOutlet` there), so this is the only place a wrong param on one of
- * the spellings would show up.
+ * `repositories/:repo`, `repositories/:repo/images/:image`, `repositories/:repo/daemons/:daemon`
+ * and `repositories/:repo/docs/:site` are each one entry inside `OWN`, mounted three times — bare,
+ * under a project and under a repository — and since qits-2316 (repo), qits-2324 (image), qits-2327
+ * (daemon) and qits-2328 (site) all four reach this one component rather than `RepositoryPage`,
+ * `ImagePage`, `DaemonPage` or `DocsPage`. The point of this group is that the hand-off actually
+ * happens in every spelling, of every mount, through real routing rather than a stubbed
+ * `ActivatedRoute`: `app.routes.spec.ts` never instantiates a component (there is no `RouterOutlet`
+ * there), so this is the only place a wrong param on one of the spellings would show up.
  */
 describe('RepositoryRedirect', () => {
   describe('reached through routing', () => {
@@ -146,6 +146,52 @@ describe('RepositoryRedirect', () => {
         await vi.waitFor(() => expect(navigateAway).toHaveBeenCalled());
         expect(navigateAway).toHaveBeenCalledWith(
           `${LANDING_ORIGIN}/artifacts/repositories/daemons/daemons/qits-agent`,
+        );
+      });
+    });
+
+    /**
+     * `repositories/:repo/docs/:site`, the qits-2328 counterpart to the three groups above: the
+     * same route object, mounted the same three times, now carrying a `site` param as well.
+     */
+    describe('the docs route', () => {
+      it('hands the bare spelling off to the landing app’s docs page', async () => {
+        await harness.navigateByUrl('/repositories/docs/docs/qits-artifacts');
+        await vi.waitFor(() => expect(navigateAway).toHaveBeenCalled());
+        expect(navigateAway).toHaveBeenCalledWith(
+          `${LANDING_ORIGIN}/artifacts/repositories/docs/docs/qits-artifacts`,
+        );
+      });
+
+      it('hands the project spelling off the same way', async () => {
+        await harness.navigateByUrl('/qits/repositories/docs/docs/qits-artifacts');
+        await vi.waitFor(() => expect(navigateAway).toHaveBeenCalled());
+        expect(navigateAway).toHaveBeenCalledWith(
+          `${LANDING_ORIGIN}/artifacts/repositories/docs/docs/qits-artifacts`,
+        );
+      });
+
+      it('hands the repository spelling off the same way', async () => {
+        await harness.navigateByUrl(
+          '/qits/qits-artifacts/qits-artifacts-service/repositories/docs/docs/qits-artifacts',
+        );
+        await vi.waitFor(() => expect(navigateAway).toHaveBeenCalled());
+        expect(navigateAway).toHaveBeenCalledWith(
+          `${LANDING_ORIGIN}/artifacts/repositories/docs/docs/qits-artifacts`,
+        );
+      });
+
+      /**
+       * A site name is one path segment no matter what it contains, the same rule as a scoped
+       * image name above: `%2F` survives as a literal slash inside the `site` param rather than
+       * splitting it into two segments, and `encodeURIComponent` puts it back on the way out —
+       * `@changelog/qits-qits` becomes the one segment `%40changelog%2Fqits-qits`.
+       */
+      it('escapes a slashed, scoped site name on the way out, one segment round trip', async () => {
+        await harness.navigateByUrl('/repositories/docs/docs/%40changelog%2Fqits-qits');
+        await vi.waitFor(() => expect(navigateAway).toHaveBeenCalled());
+        expect(navigateAway).toHaveBeenCalledWith(
+          `${LANDING_ORIGIN}/artifacts/repositories/docs/docs/%40changelog%2Fqits-qits`,
         );
       });
     });

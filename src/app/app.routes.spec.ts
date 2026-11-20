@@ -4,7 +4,6 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { routes } from './app.routes';
 import { CleanupPage } from './cleanup/cleanup-page';
-import { DocsPage } from './docs/docs-page';
 import { NotFound } from './not-found/not-found';
 import { RepositoriesPage } from './repositories/repositories-page';
 import { RepositoryRedirect } from './repository/repository-redirect';
@@ -53,10 +52,12 @@ describe('app routes', () => {
       RepositoryRedirect,
     );
 
-    expect(await resolve('/repositories/docs/docs/%40userflows%2Fqits-artifacts')).toBe(DocsPage);
+    expect(await resolve('/repositories/docs/docs/%40userflows%2Fqits-artifacts')).toBe(
+      RepositoryRedirect,
+    );
     expect(
       await resolve('/qits/services/qits-artifacts/repositories/docs/docs/%40userflows%2Fqits-artifacts'),
-    ).toBe(DocsPage);
+    ).toBe(RepositoryRedirect);
   });
 
   it('serves every own page under a project as well', async () => {
@@ -67,7 +68,7 @@ describe('app routes', () => {
     expect(await resolve('/qits/repositories/qits/images/qits%2Fbase')).toBe(RepositoryRedirect);
     expect(await resolve('/qits/repositories/daemons/daemons/qits-agent')).toBe(RepositoryRedirect);
     expect(await resolve('/qits/repositories/docs/docs/%40userflows%2Fqits-artifacts')).toBe(
-      DocsPage,
+      RepositoryRedirect,
     );
   });
 
@@ -81,7 +82,7 @@ describe('app routes', () => {
     await router.navigateByUrl('/repositories/docs/docs/%40userflows%2Fqits-artifacts');
     let node = router.routerState.snapshot.root;
     while (node.firstChild) node = node.firstChild;
-    expect(node.component).toBe(DocsPage);
+    expect(node.component).toBe(RepositoryRedirect);
     expect(node.paramMap.get('site')).toBe('@userflows/qits-artifacts');
     expect(node.paramMap.get('repo')).toBe('docs');
   });

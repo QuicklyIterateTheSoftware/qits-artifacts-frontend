@@ -39,39 +39,44 @@ async function landingOrigin(links: QitsAppLinks): Promise<string> {
 
 /**
  * The landing app's own path for whatever this route's matched params carry: `repo` alone for
- * `repositories/:repo`, `repo` and `image` together for `repositories/:repo/images/:image`, or
- * `repo` and `daemon` together for `repositories/:repo/daemons/:daemon`. All three mounts share the
- * one `RepositoryRedirect` below, so the params on the matched route are exactly the params this
- * builds from — there is never a fourth shape to account for, and no route carries both `image`
- * and `daemon` at once.
+ * `repositories/:repo`, `repo` and `image` together for `repositories/:repo/images/:image`, `repo`
+ * and `daemon` together for `repositories/:repo/daemons/:daemon`, or `repo` and `site` together for
+ * `repositories/:repo/docs/:site`. All four mounts share the one `RepositoryRedirect` below, so the
+ * params on the matched route are exactly the params this builds from — there is never a fifth
+ * shape to account for, and no route carries more than one of `image`/`daemon`/`site` at once.
  */
 function landingPath(params: ParamMap): string {
   const repo = encodeURIComponent(params.get('repo') ?? '');
   const image = params.get('image');
   const daemon = params.get('daemon');
+  const site = params.get('site');
   if (image !== null) {
     return `/artifacts/repositories/${repo}/images/${encodeURIComponent(image)}`;
   }
   if (daemon !== null) {
     return `/artifacts/repositories/${repo}/daemons/${encodeURIComponent(daemon)}`;
   }
+  if (site !== null) {
+    return `/artifacts/repositories/${repo}/docs/${encodeURIComponent(site)}`;
+  }
   return `/artifacts/repositories/${repo}`;
 }
 
 /**
- * `repositories/:repo`, `repositories/:repo/images/:image` and `repositories/:repo/daemons/:daemon`
- * — each one entry inside `OWN`, mounted three times (bare, under a project, under
- * `:project/:group/:repository`), none of them drawing `RepositoryPage`, `ImagePage` or
- * `DaemonPage` here any more (qits-2316, qits-2324, qits-2327).
+ * `repositories/:repo`, `repositories/:repo/images/:image`, `repositories/:repo/daemons/:daemon`
+ * and `repositories/:repo/docs/:site` — each one entry inside `OWN`, mounted three times (bare,
+ * under a project, under `:project/:group/:repository`), none of them drawing `RepositoryPage`,
+ * `ImagePage`, `DaemonPage` or `DocsPage` here any more (qits-2316, qits-2324, qits-2327, qits-2328).
  *
  * It draws almost nothing of its own: a line for the moment between mounting and the hand-off.
- * `/repositories/<repo>`, `/repositories/<repo>/images/<image>` and
- * `/repositories/<repo>/daemons/<daemon>` used to open this application's own pages for that
- * repository, that image or that daemon; this component instead performs a full-document hand-off
- * to the landing app's own address for whichever one matched —
- * `<landing origin>/artifacts/repositories/<repo>`,
- * `<landing origin>/artifacts/repositories/<repo>/images/<image>` or
- * `<landing origin>/artifacts/repositories/<repo>/daemons/<daemon>` — through {@link NAVIGATE_AWAY}
+ * `/repositories/<repo>`, `/repositories/<repo>/images/<image>`,
+ * `/repositories/<repo>/daemons/<daemon>` and `/repositories/<repo>/docs/<site>` used to open this
+ * application's own pages for that repository, that image, that daemon or that site; this
+ * component instead performs a full-document hand-off to the landing app's own address for
+ * whichever one matched — `<landing origin>/artifacts/repositories/<repo>`,
+ * `<landing origin>/artifacts/repositories/<repo>/images/<image>`,
+ * `<landing origin>/artifacts/repositories/<repo>/daemons/<daemon>` or
+ * `<landing origin>/artifacts/repositories/<repo>/docs/<site>` — through {@link NAVIGATE_AWAY}
  * rather than the router: the destination is a different Angular application, and a `routerLink`
  * would compile and go nowhere.
  *
@@ -93,7 +98,9 @@ export class RepositoryRedirect {
     ? 'image'
     : this.route.snapshot.paramMap.has('daemon')
       ? 'daemon'
-      : 'repository';
+      : this.route.snapshot.paramMap.has('site')
+        ? 'site'
+        : 'repository';
 
   constructor() {
     const path = landingPath(this.route.snapshot.paramMap);

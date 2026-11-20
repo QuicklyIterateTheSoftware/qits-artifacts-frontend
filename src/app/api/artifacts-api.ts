@@ -12,8 +12,6 @@ import type {
   DaemonsResponse,
   DocsSiteDto,
   DocsSitesResponse,
-  DocsVersionDto,
-  DocsVersionsResponse,
   GcRepositoriesPlanResponse,
   GcRepositoryPlanReportDto,
   GcRepositorySweepReportDto,
@@ -229,18 +227,6 @@ export class ArtifactsApi {
       ),
     );
     return response.sites;
-  }
-
-  /** One site's versions, newest first. The site name is encoded whole — `@userflows/qits-docs`
-   * is one name with a slash in it, exactly like a scoped npm package. */
-  async docsVersions(repository: string, site: string): Promise<readonly DocsVersionDto[]> {
-    const response = await firstValueFrom(
-      this.http.get<DocsVersionsResponse>(
-        `${this.base}/artifacts/api/repositories/${encodeURIComponent(repository)}` +
-          `/docs/${encodeURIComponent(site)}/versions`,
-      ),
-    );
-    return response.versions;
   }
 
   /**

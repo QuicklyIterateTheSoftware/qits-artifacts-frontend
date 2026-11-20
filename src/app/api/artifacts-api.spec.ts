@@ -230,49 +230,6 @@ describe('ArtifactsApi', () => {
     ]);
   });
 
-  // A docs site name carries a separator that is not a path separator, exactly like an npm scope.
-  // The browse endpoint takes the encoded spelling; the docs WIRE takes only the literal one, which
-  // is why the page builds its bundle link itself rather than through this client.
-  it('encodes the separator in a multi-segment site name', async () => {
-    const versions = api.docsVersions('docs', '@userflows/qits-artifacts');
-    const request = http.expectOne(
-      '/artifacts/api/repositories/docs/docs/%40userflows%2Fqits-artifacts/versions',
-    );
-    expect(request.request.url).toContain('%2F');
-    request.flush({
-      versions: [
-        {
-          version: '2026.828.202327',
-          fileCount: 54,
-          sizeBytes: 524288,
-          publishedAt: '2026-08-28T20:23:27Z',
-          accessedAt: null,
-          metadata: { 'git.branch.name': 'main', 'git.commit.hash': '9f96484aa1c0' },
-        },
-      ],
-    });
-    await expect(versions).resolves.toMatchObject([
-      { fileCount: 54, metadata: { 'git.branch.name': 'main' } },
-    ]);
-  });
-
-  it('keeps an empty metadata map as an empty map, not as an absence', async () => {
-    const versions = api.docsVersions('docs', 'plain');
-    http.expectOne('/artifacts/api/repositories/docs/docs/plain/versions').flush({
-      versions: [
-        {
-          version: '1',
-          fileCount: 1,
-          sizeBytes: 1,
-          publishedAt: '2026-08-28T20:23:27Z',
-          accessedAt: null,
-          metadata: {},
-        },
-      ],
-    });
-    await expect(versions).resolves.toMatchObject([{ metadata: {} }]);
-  });
-
   /** Lets an awaited cross-origin URL resolve, so a request that is going out has gone out. */
   async function settle(): Promise<void> {
     for (let i = 0; i < 5; i++) await Promise.resolve();
