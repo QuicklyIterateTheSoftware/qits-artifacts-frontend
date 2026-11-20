@@ -10,15 +10,9 @@ import type {
   ArtifactFilters,
   DaemonDto,
   DaemonsResponse,
-  DaemonVersionDto,
-  DaemonVersionsResponse,
   DocsSiteDto,
   DocsSitesResponse,
-  DocsVersionDto,
-  DocsVersionsResponse,
   GcRepositoriesPlanResponse,
-  GcRepositoryPlanReportDto,
-  GcRepositorySweepReportDto,
   ImagesResponse,
   MavenPackageDto,
   MavenPackagesResponse,
@@ -32,8 +26,8 @@ import type {
 } from './dto';
 
 /**
- * The application the cleanup reads and the one write go through (qits-2138). It is private: it
- * answers only on the private edge, which a browser reaches through the network-access tunnel.
+ * The application the cleanup listing goes through (qits-2138). It is private: it answers only on
+ * the private edge, which a browser reaches through the network-access tunnel.
  */
 export const ORCHESTRATOR = 'qits-orchestrator';
 
@@ -56,7 +50,8 @@ const EDGE_UNROUTED = 'is not an application this edge routes';
  *   network error rather than the refusal — this is the common case, and a down tunnel is the other.
  * - **421**: the public edge recognising a private deployment's name and saying it is misdirected.
  * - **404 whose body is the edge's plain-text sentence** ({@link EDGE_UNROUTED}). A bare 404 is not
- *   enough, and that is the point of reading the text: the plan and sweep doors answer a real 404
+ *   enough, and that is the point of reading the text: qits-orchestrator's own doors — the listing
+ *   here, the plan and sweep doors now on the landing app's side — answer a real 404 of their own
  *   for a repository that does not exist, and that one must read as "no such repository", not as
  *   a tunnel problem. Its body is a JSON envelope, never this sentence.
  *
@@ -81,14 +76,21 @@ export function orchestratorUnreachable(error: unknown): boolean {
  * carries a project id — so unlike spa-ci and spa-cd this repository has one `@Injectable` rather
  * than two.
  *
- * **The cleanup is the exception, and goes through qits-orchestrator (qits-2138).** A cleanup plan
- * is a keep-set, and the keep-set is the platform's live pins, which qits-artifacts can no longer
- * read: the services that answer them are private and it is public. qits-orchestrator is private,
- * reads the same pins for every gc run, and hands them to qits-artifacts — answering with
- * qits-artifacts' own JSON, verbatim, which is why the DTOs did not move. So the three cleanup calls
- * go to qits-orchestrator's own origin from the navigation, cross-origin, and carry the reader's
- * bearer (`qitsBearerInterceptor`, installed in `app.config.ts`) — the credential its doors admit.
- * The reads of the store itself stay same-origin and unauthenticated, as below.
+ * **The cleanup listing is the exception, and goes through qits-orchestrator (qits-2138).** A
+ * cleanup plan is a keep-set, and the keep-set is the platform's live pins, which qits-artifacts
+ * can no longer read: the services that answer them are private and it is public.
+ * qits-orchestrator is private, reads the same pins for every gc run, and hands them to
+ * qits-artifacts — answering with qits-artifacts' own JSON, verbatim, which is why the DTO did not
+ * move. So {@link ArtifactsApi.gcRepositories} goes to qits-orchestrator's own origin from the
+ * navigation, cross-origin, and carries the reader's bearer (`qitsBearerInterceptor`, installed in
+ * `app.config.ts`) — the credential its doors admit. The reads of the store itself stay
+ * same-origin and unauthenticated, as below.
+ *
+ * **The plan and the run themselves are not here any more.** Both lived on this application's own
+ * cleanup page until qits-2329 handed that page off to the landing app, the same way
+ * `repositories/:repo` and `repositories/:repo/images/:image` already had (qits-2316, qits-2324);
+ * the landing app talks to qits-orchestrator for them on its own. This listing is the one cleanup
+ * call left in this repository, and it is read-only.
  *
  * All calls are one-shot: `firstValueFrom` unwraps the observable immediately, because a promise is
  * what the pages' `async` methods want. `HttpClient` on the fetch backend rather than bare
@@ -104,11 +106,9 @@ export function orchestratorUnreachable(error: unknown): boolean {
  * `@qits/ui-components` — and the slash in it is not a path separator; `encodeURIComponent` turns
  * it into `@qits%2Fui-components`, which is the form the service's route expects.
  *
- * **There is one write, and it deletes.** {@link ArtifactsApi.gcRepositorySweep} unlinks files. It
- * carries the reader's bearer and nothing else: qits-orchestrator admits a person in one of its gc
- * roles, and it — not this page — holds the credential qits-artifacts accepts for the sweep. Before
- * qits-2138 the press went to qits-artifacts directly, whose sweep admits only `qits:system`, so a
- * person's press could only ever answer 403.
+ * **There is no write here.** This application's one write — the sweep that unlinks files — moved
+ * with the plan and the run to the landing app's cleanup page (qits-2329); every call left in this
+ * class is a read.
  */
 @Injectable({ providedIn: 'root' })
 export class ArtifactsApi {
@@ -212,17 +212,6 @@ export class ArtifactsApi {
     return response.daemons;
   }
 
-  /** One daemon's versions, newest first, each with the digest a deployment would pin. */
-  async daemonVersions(repository: string, daemon: string): Promise<readonly DaemonVersionDto[]> {
-    const response = await firstValueFrom(
-      this.http.get<DaemonVersionsResponse>(
-        `${this.base}/artifacts/api/repositories/${encodeURIComponent(repository)}` +
-          `/daemons/${encodeURIComponent(daemon)}/versions`,
-      ),
-    );
-    return response.versions;
-  }
-
   /** The documentation sites of a `docs` repository, with the per-site union the open wire
    * catalog deliberately withholds. */
   async docsSites(repository: string): Promise<readonly DocsSiteDto[]> {
@@ -232,18 +221,6 @@ export class ArtifactsApi {
       ),
     );
     return response.sites;
-  }
-
-  /** One site's versions, newest first. The site name is encoded whole — `@userflows/qits-docs`
-   * is one name with a slash in it, exactly like a scoped npm package. */
-  async docsVersions(repository: string, site: string): Promise<readonly DocsVersionDto[]> {
-    const response = await firstValueFrom(
-      this.http.get<DocsVersionsResponse>(
-        `${this.base}/artifacts/api/repositories/${encodeURIComponent(repository)}` +
-          `/docs/${encodeURIComponent(site)}/versions`,
-      ),
-    );
-    return response.versions;
   }
 
   /**
@@ -258,33 +235,6 @@ export class ArtifactsApi {
   async gcRepositories(): Promise<GcRepositoriesPlanResponse> {
     const url = await this.orchestratorUrl('/orchestrator/api/artifacts/repositories');
     return firstValueFrom(this.http.get<GcRepositoriesPlanResponse>(url));
-  }
-
-  /** One repository's cleanup in full: what would die, what would not, and why each. A 404 here is
-   * qits-artifacts saying it has no such repository; see {@link orchestratorUnreachable}. */
-  async gcRepositoryPlan(repository: string): Promise<GcRepositoryPlanReportDto> {
-    const url = await this.orchestratorUrl(
-      `/orchestrator/api/artifacts/repositories/${encodeURIComponent(repository)}/plan`,
-    );
-    return firstValueFrom(this.http.get<GcRepositoryPlanReportDto>(url));
-  }
-
-  /**
-   * Runs one repository's cleanup, and answers the receipt of what it did.
-   *
-   * **The only call this application makes that deletes anything**, and the scope is a path segment
-   * rather than a parameter for that reason: a request that lost its scope would be a whole-store
-   * sweep, while a request with a wrong segment is a 404. The body is empty on purpose — there is
-   * no way to submit a plan, at any scope. qits-orchestrator reads the pins afresh and qits-artifacts
-   * computes a new plan from them inside the request and applies that; the report this page showed
-   * is what authorises the press, never what executes. A 409 means a gc run is active, and a 502
-   * that qits-orchestrator could not get an answer from qits-artifacts.
-   */
-  async gcRepositorySweep(repository: string): Promise<GcRepositorySweepReportDto> {
-    const url = await this.orchestratorUrl(
-      `/orchestrator/api/artifacts/repositories/${encodeURIComponent(repository)}/sweep`,
-    );
-    return firstValueFrom(this.http.post<GcRepositorySweepReportDto>(url, {}));
   }
 }
 

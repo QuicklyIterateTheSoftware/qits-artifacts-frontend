@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
-import { ActivatedRoute, type ParamMap } from '@angular/router';
+import { ActivatedRoute, type Data, type ParamMap } from '@angular/router';
 import { QitsAppLinks } from '@qits/ui-components';
 import { NAVIGATE_AWAY } from '../ui/navigate-away';
 
@@ -38,44 +38,75 @@ async function landingOrigin(links: QitsAppLinks): Promise<string> {
 }
 
 /**
- * The landing app's own path for whatever this route's matched params carry: `repo` alone for
- * `repositories/:repo`, `repo` and `image` together for `repositories/:repo/images/:image`, or
- * `repo` and `coordinate` together for `repositories/:repo/maven-packages/:coordinate`. All three
- * mounts share the one `RepositoryRedirect` below, so the params on the matched route are exactly
- * the params this builds from — there is never a fourth shape to account for.
+ * The landing app's own path for whatever this route's matched params and data carry: `repo`
+ * alone for `repositories/:repo`, `repo` and `image` together for
+ * `repositories/:repo/images/:image`, `repo` and `daemon` together for
+ * `repositories/:repo/daemons/:daemon`, `repo` and `site` together for
+ * `repositories/:repo/docs/:site`, `repo` and `coordinate` together for
+ * `repositories/:repo/maven-packages/:coordinate`, or `repo` alone again — but marked by
+ * `data.landing` — for `repositories/:repo/cleanup`. All six mounts share the one
+ * `RepositoryRedirect` below, so the params and data on the matched route are exactly what this
+ * builds from — there is never a seventh shape to account for, and no route carries more than one
+ * of `image`/`daemon`/`site`/`coordinate` at once, nor both one of those params and `data.landing`
+ * together.
+ *
+ * `image`, `daemon`, `site` and `coordinate` are read first because none can be mistaken for
+ * another shape: a route that carries one is `images/:image`, `daemons/:daemon`, `docs/:site` or
+ * `maven-packages/:coordinate` and nothing else. `repo` alone is ambiguous between
+ * `repositories/:repo` and `repositories/:repo/cleanup` — both match only on `repo` — which is why
+ * the latter is told apart by its route `data` rather than by a param.
  */
-function landingPath(params: ParamMap): string {
+function landingPath(params: ParamMap, data: Data): string {
   const repo = encodeURIComponent(params.get('repo') ?? '');
   const image = params.get('image');
-  if (image !== null) return `/artifacts/repositories/${repo}/images/${encodeURIComponent(image)}`;
+  const daemon = params.get('daemon');
+  const site = params.get('site');
   const coordinate = params.get('coordinate');
+  if (image !== null) {
+    return `/artifacts/repositories/${repo}/images/${encodeURIComponent(image)}`;
+  }
+  if (daemon !== null) {
+    return `/artifacts/repositories/${repo}/daemons/${encodeURIComponent(daemon)}`;
+  }
+  if (site !== null) {
+    return `/artifacts/repositories/${repo}/docs/${encodeURIComponent(site)}`;
+  }
   if (coordinate !== null) {
     return `/artifacts/repositories/${repo}/maven-packages/${encodeURIComponent(coordinate)}`;
   }
-  return `/artifacts/repositories/${repo}`;
+  return data['landing'] === 'cleanup'
+    ? `/artifacts/repositories/${repo}/cleanup`
+    : `/artifacts/repositories/${repo}`;
 }
 
 /**
- * `repositories/:repo`, `repositories/:repo/images/:image` and
- * `repositories/:repo/maven-packages/:coordinate` — each one entry inside `OWN`, mounted three
- * times (bare, under a project, under `:project/:group/:repository`), none of them drawing
- * `RepositoryPage`, `ImagePage` or `MavenPage` here any more (qits-2316, qits-2324, qits-2325).
+ * `repositories/:repo`, `repositories/:repo/images/:image`, `repositories/:repo/daemons/:daemon`,
+ * `repositories/:repo/docs/:site`, `repositories/:repo/maven-packages/:coordinate` and
+ * `repositories/:repo/cleanup` — each one entry inside `OWN`, mounted three times (bare, under a
+ * project, under `:project/:group/:repository`), none of them drawing `RepositoryPage`,
+ * `ImagePage`, `DaemonPage`, `DocsPage`, `MavenPage` or `CleanupPage` here any more (qits-2316,
+ * qits-2324, qits-2325, qits-2327, qits-2328, qits-2329).
  *
  * It draws almost nothing of its own: a line for the moment between mounting and the hand-off.
- * `/repositories/<repo>`, `/repositories/<repo>/images/<image>` and
- * `/repositories/<repo>/maven-packages/<coordinate>` used to open this application's own pages for
- * that repository, that image or that coordinate; this component instead performs a full-document
- * hand-off to the landing app's own address for whichever one matched —
+ * `/repositories/<repo>`, `/repositories/<repo>/images/<image>`,
+ * `/repositories/<repo>/daemons/<daemon>`, `/repositories/<repo>/docs/<site>`,
+ * `/repositories/<repo>/maven-packages/<coordinate>` and `/repositories/<repo>/cleanup` used to
+ * open this application's own pages for that repository, that image, that daemon, that site, that
+ * coordinate or that cleanup; this component instead performs a full-document hand-off to the
+ * landing app's own address for whichever one matched —
  * `<landing origin>/artifacts/repositories/<repo>`,
- * `<landing origin>/artifacts/repositories/<repo>/images/<image>` or
- * `<landing origin>/artifacts/repositories/<repo>/maven-packages/<coordinate>` — through
- * {@link NAVIGATE_AWAY} rather than the router: the destination is a different Angular
- * application, and a `routerLink` would compile and go nowhere.
+ * `<landing origin>/artifacts/repositories/<repo>/images/<image>`,
+ * `<landing origin>/artifacts/repositories/<repo>/daemons/<daemon>`,
+ * `<landing origin>/artifacts/repositories/<repo>/docs/<site>`,
+ * `<landing origin>/artifacts/repositories/<repo>/maven-packages/<coordinate>` or
+ * `<landing origin>/artifacts/repositories/<repo>/cleanup` — through {@link NAVIGATE_AWAY} rather
+ * than the router: the destination is a different Angular application, and a `routerLink` would
+ * compile and go nowhere.
  *
- * The params are read off **this route's own** `ActivatedRoute`, not a parent's and not
- * `QITS_SCOPE`: all three spellings of each mount share one route object (the matching `OWN`
- * entry, mounted three times), so whatever that route itself captures is already the right value
- * in every spelling, with no scope resolution needed to find it.
+ * The params and the data are read off **this route's own** `ActivatedRoute`, not a parent's and
+ * not `QITS_SCOPE`: all three spellings of each mount share one route object (the matching `OWN`
+ * entry, mounted three times), so whatever that route itself captures or carries is already the
+ * right value in every spelling, with no scope resolution needed to find it.
  */
 @Component({
   selector: 'app-repository-redirect',
@@ -85,15 +116,21 @@ function landingPath(params: ParamMap): string {
 export class RepositoryRedirect {
   private readonly route = inject(ActivatedRoute);
 
-  /** Which noun the message above names, decided once off this route's own matched params. */
+  /** Which noun the message above names, decided once off this route's own matched params/data. */
   protected readonly noun = this.route.snapshot.paramMap.has('image')
     ? 'image'
-    : this.route.snapshot.paramMap.has('coordinate')
-      ? 'coordinate'
-      : 'repository';
+    : this.route.snapshot.paramMap.has('daemon')
+      ? 'daemon'
+      : this.route.snapshot.paramMap.has('site')
+        ? 'site'
+        : this.route.snapshot.paramMap.has('coordinate')
+          ? 'coordinate'
+          : this.route.snapshot.data['landing'] === 'cleanup'
+            ? 'cleanup'
+            : 'repository';
 
   constructor() {
-    const path = landingPath(this.route.snapshot.paramMap);
+    const path = landingPath(this.route.snapshot.paramMap, this.route.snapshot.data);
     const links = inject(QitsAppLinks);
     const navigateAway = inject(NAVIGATE_AWAY);
     void landingOrigin(links).then((origin) => {

@@ -9,18 +9,18 @@ host** (`registry.<env>.<domain>`) through Quinoa. Eight pages, and almost all o
   repository.
 - **`/repositories/<repo>`** — one repository, drawn as whatever its type holds: images, packages,
   Maven coordinates, daemons, documentation sites, or the CI record table.
-- **`/repositories/<repo>/cleanup`** — what collecting that repository would delete, what it would
-  keep and why each, and the one press in this application that deletes bytes.
+- **`/repositories/<repo>/cleanup`** — hands off to the landing app's own address for that
+  repository's cleanup, the same way `/repositories/<repo>` does (qits-2316, qits-2324, qits-2329).
 - **`/repositories/<repo>/images/<image>`** — hands off to the landing app's own address for that
   image, the same way `/repositories/<repo>` does (qits-2316, qits-2324).
 - **`/repositories/<repo>/packages/<package>`** — a package's versions.
 - **`/repositories/<repo>/maven-packages/<coordinate>`** — hands off to the landing app's own
   address for that coordinate, the same way `/repositories/<repo>` and
   `/repositories/<repo>/images/<image>` do (qits-2316, qits-2324, qits-2325).
-- **`/repositories/<repo>/daemons/<daemon>`** — a daemon's published versions, each linked to its
-  own version-addressed download, with the `sha256:` digest a deployment pins.
-- **`/repositories/<repo>/docs/<site>`** — a documentation site's published versions, each with the
-  branch and commit its publisher declared and a link that opens the bundle itself.
+- **`/repositories/<repo>/daemons/<daemon>`** — hands off to the landing app's own address for that
+  daemon, the same way the routes above do (qits-2316, qits-2324, qits-2325, qits-2327).
+- **`/repositories/<repo>/docs/<site>`** — hands off to the landing app's own address for that
+  site, the same way the routes above do (qits-2316, qits-2324, qits-2325, qits-2327, qits-2328).
 
 **Every one of them is addressable twice.** The platform's URL grammar puts the same page under
 `/<projectSlug>/<group>/<repoName>/…` — the middle segment being the repository's component where
@@ -67,12 +67,12 @@ four different facts (not read yet, refused because the live pins were unreachab
 this type, or a rule ran and found nothing), and the cell distinguishes all four rather than drawing
 them alike.
 
-**Nothing sweeps without its plan on screen.** The run lives only on the cleanup page, below the
-rendered plan, and the repository list offers review rather than execution. That guarantees the
-report was served and displayed before the invocation existed — it cannot prove anyone read it, and
-does not claim to. When the service cannot read its live pins the run affordance is **not rendered
-at all** rather than disabled, because what is on screen in that state is what the rules condemn
-rather than what a run would take.
+**Nothing sweeps without its plan on screen.** That rule, and the page it governs — the run below
+the rendered plan, with the affordance **not rendered at all** rather than disabled when the
+service cannot read its live pins — lived here until qits-2329 handed the whole cleanup page off
+to the landing app, the same way `/repositories/<repo>` and `/repositories/<repo>/images/<image>`
+already had (qits-2316, qits-2324). The repository list here still offers review rather than
+execution: its Cleanup column is a link to that page, never a button that executes anything.
 
 The **git host** is out of scope and named as such on the front page. It is a service of its own —
 qits-githost, at `/git/` rather than under this segment — with its own storage: no blob store, no
@@ -95,11 +95,12 @@ Once the server is running, open your browser and navigate to `http://localhost:
 
 `proxy.conf.json` forwards `/artifacts/api`, `/projects/api` and `/main-navigation` to the edge on
 `localhost:8080`, because `ng serve` puts nothing in front. In a deployment the store's reads are
-same-origin paths on this service's own host, and carry no credential. The cleanup is the exception
-(qits-2138): its listing, plan and run go to **qits-orchestrator**, on the origin the navigation names
-for it, with the reader's bearer — qits-orchestrator reads the live pins qits-artifacts can no longer
-reach and hands them on. qits-orchestrator is private, so a browser off the network-access tunnel
-gets the platform's tunnel hint on both cleanup views instead of a plan, and no run.
+same-origin paths on this service's own host, and carry no credential. The cleanup listing is the
+exception (qits-2138): it goes to **qits-orchestrator**, on the origin the navigation names for it,
+with the reader's bearer — qits-orchestrator reads the live pins qits-artifacts can no longer reach
+and hands them on. qits-orchestrator is private, so a browser off the network-access tunnel gets
+the platform's tunnel hint on this listing instead of a plan. The per-repository plan and the run
+themselves are the landing app's concern now (qits-2329): this application no longer calls either.
 
 ## Running the checks
 

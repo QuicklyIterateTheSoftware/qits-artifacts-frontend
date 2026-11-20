@@ -91,9 +91,11 @@ const EXCLUDED_NOTE = 'excluded by configuration';
  * `0` would claim the store is clean when three of them claim nothing of the sort.
  *
  * **No run button lives on this page.** The row offers review; the running is behind the plan, on
- * the repository's own cleanup page, where the report the press executes against is on screen. The
- * standing rule is that nothing sweeps without the dry-run being read, and a button beside a figure
- * in a table would be the exact shape that rule exists to refuse.
+ * the repository's own cleanup page — the landing app's now, since qits-2329 handed that page off
+ * (`RepositoryRedirect` carries the `Review cleanup` link there) — where the report the press
+ * executes against is on screen. The standing rule is that nothing sweeps without the dry-run
+ * being read, and a button beside a figure in a table would be the exact shape that rule exists to
+ * refuse.
  *
  * **The git host is a footer note, not a row.** It is qits-githost now, a service of its own
  * answering at `/git/` — its own storage, no blob store, no rows, no `artifact_repository` entry.

@@ -12,9 +12,10 @@ const ORCHESTRATOR_ORIGIN = 'https://orchestrator.qits.example';
  *
  * The store's reads are same-origin absolute paths on purpose — the SPA is served by the very
  * service it reads from, behind the same gateway, and these reads carry no credential at all. The
- * three cleanup calls are the exception (qits-2138): they go to qits-orchestrator's own origin, as
- * the navigation names it, and carry the bearer `qitsBearerInterceptor` adds (installed in
- * `app.config.ts`, not under test here).
+ * cleanup listing is the exception (qits-2138): it goes to qits-orchestrator's own origin, as the
+ * navigation names it, and carries the bearer `qitsBearerInterceptor` adds (installed in
+ * `app.config.ts`, not under test here). The per-repository plan and the run themselves moved off
+ * this application to the landing app (qits-2329) and are not under test here any more.
  *
  * The backend is being built against this contract in parallel, so this file is where the contract
  * is pinned: a path that changes shape breaks here first, loudly, rather than at runtime.
@@ -212,24 +213,6 @@ describe('ArtifactsApi', () => {
     await expect(daemons).resolves.toMatchObject([{ name: 'qits-agent', versionCount: 3 }]);
   });
 
-  it('unwraps a daemon’s versions, digest in the wire spelling and all', async () => {
-    const versions = api.daemonVersions('daemons', 'qits-agent');
-    http.expectOne('/artifacts/api/repositories/daemons/daemons/qits-agent/versions').flush({
-      versions: [
-        {
-          version: '2026.828.202327',
-          digest: 'sha256:0123456789abcdef0123',
-          sizeBytes: 20971520,
-          publishedAt: '2026-08-28T20:23:27Z',
-          accessedAt: null,
-        },
-      ],
-    });
-    await expect(versions).resolves.toMatchObject([
-      { digest: 'sha256:0123456789abcdef0123', accessedAt: null },
-    ]);
-  });
-
   it('unwraps the documentation sites, which arrive under `sites` and not `docs`', async () => {
     const sites = api.docsSites('docs');
     http.expectOne('/artifacts/api/repositories/docs/docs').flush({
@@ -246,49 +229,6 @@ describe('ArtifactsApi', () => {
     await expect(sites).resolves.toMatchObject([
       { name: '@userflows/qits-artifacts', versionCount: 2 },
     ]);
-  });
-
-  // A docs site name carries a separator that is not a path separator, exactly like an npm scope.
-  // The browse endpoint takes the encoded spelling; the docs WIRE takes only the literal one, which
-  // is why the page builds its bundle link itself rather than through this client.
-  it('encodes the separator in a multi-segment site name', async () => {
-    const versions = api.docsVersions('docs', '@userflows/qits-artifacts');
-    const request = http.expectOne(
-      '/artifacts/api/repositories/docs/docs/%40userflows%2Fqits-artifacts/versions',
-    );
-    expect(request.request.url).toContain('%2F');
-    request.flush({
-      versions: [
-        {
-          version: '2026.828.202327',
-          fileCount: 54,
-          sizeBytes: 524288,
-          publishedAt: '2026-08-28T20:23:27Z',
-          accessedAt: null,
-          metadata: { 'git.branch.name': 'main', 'git.commit.hash': '9f96484aa1c0' },
-        },
-      ],
-    });
-    await expect(versions).resolves.toMatchObject([
-      { fileCount: 54, metadata: { 'git.branch.name': 'main' } },
-    ]);
-  });
-
-  it('keeps an empty metadata map as an empty map, not as an absence', async () => {
-    const versions = api.docsVersions('docs', 'plain');
-    http.expectOne('/artifacts/api/repositories/docs/docs/plain/versions').flush({
-      versions: [
-        {
-          version: '1',
-          fileCount: 1,
-          sizeBytes: 1,
-          publishedAt: '2026-08-28T20:23:27Z',
-          accessedAt: null,
-          metadata: {},
-        },
-      ],
-    });
-    await expect(versions).resolves.toMatchObject([{ metadata: {} }]);
   });
 
   /** Lets an awaited cross-origin URL resolve, so a request that is going out has gone out. */
@@ -311,34 +251,6 @@ describe('ArtifactsApi', () => {
       repositories: [],
     });
     await expect(plan).resolves.toMatchObject({ executable: true, repositories: [] });
-  });
-
-  it('reads one repository’s plan from qits-orchestrator, the segment encoded', async () => {
-    const plan = api.gcRepositoryPlan('a/b');
-    await settle();
-    http
-      .expectOne(`${ORCHESTRATOR_ORIGIN}/orchestrator/api/artifacts/repositories/a%2Fb/plan`)
-      .flush({ repository: 'a/b' });
-    await expect(plan).resolves.toMatchObject({ repository: 'a/b' });
-  });
-
-  // The one write this application makes. It goes to qits-orchestrator with an empty body — there is
-  // no way to submit a plan — and no machine token: the bearer is the interceptor's, and what
-  // qits-artifacts accepts is qits-orchestrator's to hold.
-  it('sweeps through qits-orchestrator with an empty body and no machine token', async () => {
-    const swept = api.gcRepositorySweep('qits');
-    await settle();
-    const request = http.expectOne(
-      `${ORCHESTRATOR_ORIGIN}/orchestrator/api/artifacts/repositories/qits/sweep`,
-    );
-    expect(request.request.method).toBe('POST');
-    expect(request.request.body).toEqual({});
-    expect(request.request.headers.has('X-Artifacts-Token')).toBe(false);
-    request.flush(
-      { message: 'a gc run is already active: 7f3c' },
-      { status: 409, statusText: 'Conflict' },
-    );
-    await expect(swept).rejects.toMatchObject({ status: 409 });
   });
 
   describe('orchestratorUnreachable', () => {

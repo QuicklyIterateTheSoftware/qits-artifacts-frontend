@@ -1,8 +1,5 @@
 import type { CanMatchFn, Routes, UrlSegment } from '@angular/router';
 import { QitsMainLayout, QITS_CATEGORIES, type QitsCategory } from '@qits/ui-components';
-import { CleanupPage } from './cleanup/cleanup-page';
-import { DaemonPage } from './daemon/daemon-page';
-import { DocsPage } from './docs/docs-page';
 import { NotFound } from './not-found/not-found';
 import { PackagePage } from './package/package-page';
 import { RepositoriesPage } from './repositories/repositories-page';
@@ -38,7 +35,10 @@ import { RepositoryRedirect } from './repository/repository-redirect';
  * request, which is the rule above — but it earns the path for a second reason the other levels do
  * not have: it is the review a destructive action is authorised from, and a review that lives in a
  * modal over a table is a review with no address. As a route it is bookmarkable, it survives a
- * reload, and the back button leaves it rather than half-dismissing it.
+ * reload, and the back button leaves it rather than half-dismissing it. That review used to be
+ * drawn here; since qits-2329 it is drawn by the landing app's own
+ * `artifacts/repositories/:repo/cleanup` instead (see below) — the reasoning for the address stands
+ * regardless of which application answers it.
  *
  * All eight pages load eagerly. There are eight of them, they share every component below them, and
  * a lazy chunk boundary would be ceremony that costs a round trip.
@@ -46,25 +46,34 @@ import { RepositoryRedirect } from './repository/repository-redirect';
  * The `**` route sits inside the layout: this application owns the whole of its own host, so an
  * unknown URL is an ordinary 404 and is drawn with the chrome around it.
  *
- * **Three of the eight are exceptions now: `repositories/:repo` since qits-2316,
- * `repositories/:repo/images/:image` since qits-2324, and `repositories/:repo/maven-packages/:coordinate`
- * since qits-2325.** None of the three draws a page of its own content here any more —
- * `RepositoryPage`, `ImagePage` and `MavenPage` are all gone; each instead hands the reader to the
- * landing app's own address for that repository, that image or that coordinate, through the one
- * shared `RepositoryRedirect`, which reads whichever of `repo`/`image`/`coordinate` its own matched
- * route carries. Because each is one entry inside `OWN` rather than a route spelled out separately
- * for each mount, the hand-off reaches all three spellings — bare, under a project, under a
- * repository — with the one change below. The other five stay exactly as they were.
+ * **Six of the eight are exceptions now: `repositories/:repo` since qits-2316,
+ * `repositories/:repo/images/:image` since qits-2324, `repositories/:repo/maven-packages/:coordinate`
+ * since qits-2325, `repositories/:repo/daemons/:daemon` since qits-2327,
+ * `repositories/:repo/docs/:site` since qits-2328, and `repositories/:repo/cleanup` since
+ * qits-2329.** None of the six draws a page of its own content here any more — `RepositoryPage`,
+ * `ImagePage`, `MavenPage`, `DaemonPage`, `DocsPage` and `CleanupPage` are all gone; each instead
+ * hands the reader to the landing app's own address for that repository, that image, that
+ * coordinate, that daemon, that site or that cleanup, through the one shared `RepositoryRedirect`,
+ * which reads whichever of `repo`/`image`/`daemon`/`site`/`coordinate` its own matched route
+ * carries, and tells the cleanup mount apart from the plain repository mount — both of which carry
+ * only `repo` — by its route `data`. Because each is one entry inside `OWN` rather than a route
+ * spelled out separately for each mount, the hand-off reaches all three spellings — bare, under a
+ * project, under a repository — with the one change below. The other two stay exactly as they
+ * were.
  */
 const OWN: Routes = [
   { path: '', component: RepositoriesPage },
   { path: 'repositories/:repo', component: RepositoryRedirect },
-  { path: 'repositories/:repo/cleanup', component: CleanupPage },
+  {
+    path: 'repositories/:repo/cleanup',
+    component: RepositoryRedirect,
+    data: { landing: 'cleanup' },
+  },
   { path: 'repositories/:repo/images/:image', component: RepositoryRedirect },
   { path: 'repositories/:repo/packages/:package', component: PackagePage },
   { path: 'repositories/:repo/maven-packages/:coordinate', component: RepositoryRedirect },
-  { path: 'repositories/:repo/daemons/:daemon', component: DaemonPage },
-  { path: 'repositories/:repo/docs/:site', component: DocsPage },
+  { path: 'repositories/:repo/daemons/:daemon', component: RepositoryRedirect },
+  { path: 'repositories/:repo/docs/:site', component: RepositoryRedirect },
 ];
 
 /** The first segments this application's own routes spell, which no project and no group can be. */
@@ -111,10 +120,12 @@ export const isRepositoryAddress: CanMatchFn = (_route, segments: UrlSegment[]) 
  *
  * The pages read `inject(QITS_SCOPE).scope()` rather than these three params. A page that read them
  * would work in one spelling and be blank in the others. `RepositoryRedirect` is the exception, at
- * all three of its mounts: it reads its own route's `repo` (and, under `images/:image`, `image`, or
- * under `maven-packages/:coordinate`, `coordinate`) params directly rather than the scope, because
- * all three spellings of a given mount share the same `OWN` route object and so already carry those
- * params on the matched route itself — there is nothing a scope would add.
+ * all six of its mounts: it reads its own route's `repo` (and, under `images/:image`,
+ * `daemons/:daemon` or `docs/:site`, `image`, `daemon` or `site`, or under
+ * `maven-packages/:coordinate`, `coordinate`) params, and its own route's `data` (under
+ * `cleanup`), directly rather than the scope, because all three spellings of a given mount share
+ * the same `OWN` route object and so already carry those params and that data on the matched
+ * route itself — there is nothing a scope would add.
  */
 export const routes: Routes = [
   {
